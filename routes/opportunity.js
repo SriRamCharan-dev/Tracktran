@@ -3,6 +3,7 @@ const router = express.Router();
 const Opportunity = require('../models/Opportunity');
 const User = require('../models/User');
 const { GoogleGenAI } = require('@google/genai');
+const { normalizeDeadlineTime, extractDeadlineTime } = require('../lib/deadlineTime');
 const { buildGoogleCalendarLink } = require('../lib/googleCalendar');
 
 const ai = new GoogleGenAI({ apiKey: process.env.LLM_API_KEY });
@@ -284,11 +285,15 @@ function parseDeadline(deadlineValue, rawMessageText) {
     for (const candidate of candidates) {
         const parsed = new Date(candidate);
         if (!Number.isNaN(parsed.getTime())) {
-            return { deadline: parsed, mentioned: true };
+            return {
+                deadline: parsed,
+                mentioned: true,
+                timeMentioned: Boolean(extractDeadlineTime(candidate))
+            };
         }
     }
 
-    return { deadline: buildFallbackDeadline(), mentioned: false };
+    return { deadline: buildFallbackDeadline(), mentioned: false, timeMentioned: false };
 }
 
 function clampNumber(value, min, max) {
@@ -714,13 +719,13 @@ Content: ${sourceText}`;
         });
 
         let targetDate = normalizeString(extract.deadline_date);
-        let targetTime = normalizeString(extract.deadline_time) || "23:59";
+        let targetTime = normalizeDeadlineTime(extract.deadline_time) || extractDeadlineTime(sourceText);
         const sourceHasDeadline = hasDeadlineSignal(sourceText);
 
         let deadline = buildFallbackDeadline();
         let deadlineMentioned = false;
 
-        if (sourceHasDeadline && targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate) && /^\d{2}:\d{2}(?::\d{2})?$/.test(targetTime)) {
+        if (sourceHasDeadline && targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate) && targetTime) {
             const directParsedDeadline = new Date(`${targetDate}T${targetTime}:00`);
             if (!Number.isNaN(directParsedDeadline.getTime())) {
                 deadline = directParsedDeadline;
@@ -734,9 +739,13 @@ Content: ${sourceText}`;
 
             if (deadlineMentioned) {
                 deadline = parsedDeadlineResult.deadline;
-                const hrs = parseInt(targetTime.split(':')[0], 10);
-                const mins = parseInt(targetTime.split(':')[1], 10);
-                deadline.setHours(Number.isInteger(hrs) ? hrs : 23, Number.isInteger(mins) ? mins : 59, 0, 0);
+                if (targetTime) {
+                    const hrs = parseInt(targetTime.split(':')[0], 10);
+                    const mins = parseInt(targetTime.split(':')[1], 10);
+                    deadline.setHours(Number.isInteger(hrs) ? hrs : 23, Number.isInteger(mins) ? mins : 59, 0, 0);
+                } else if (!parsedDeadlineResult.timeMentioned) {
+                    deadline.setHours(23, 59, 0, 0);
+                }
             } else {
                 deadline = buildFallbackDeadline();
             }
