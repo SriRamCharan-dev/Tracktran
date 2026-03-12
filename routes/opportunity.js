@@ -3,6 +3,7 @@ const router = express.Router();
 const Opportunity = require('../models/Opportunity');
 const User = require('../models/User');
 const { GoogleGenAI } = require('@google/genai');
+const { buildGoogleCalendarLink } = require('../lib/googleCalendar');
 
 const ai = new GoogleGenAI({ apiKey: process.env.LLM_API_KEY });
 
@@ -609,7 +610,13 @@ router.get('/dashboard', async (req, res) => {
                 hoursLeft,
                 totalHours,
                 urgencyLabel,
-                priority
+                priority,
+                calendarLink: hasValidDeadline ? buildGoogleCalendarLink({
+                    company: opp.company,
+                    role: opp.role,
+                    deadline: parsedDeadline,
+                    application_link: opp.application_link
+                }) : ''
             };
         });
 

@@ -153,17 +153,10 @@
                             </ul>
                         </div>
 
-                        <%
-                            const eventTitle = encodeURIComponent(`${opp.company} ${opp.role}`);
-                            const eventDate = new Date(opp.deadline).toISOString().replace(/-|:|\.\d\d\d/g,"");
-                            const eventDesc = encodeURIComponent(`Company: ${opp.company}\nRole: ${opp.role}\nLink: ${opp.application_link}`);
-                            const calLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&dates=${eventDate}/${eventDate}&details=${eventDesc}`;
-                        %>
-
                         <div class="opp-actions mt-4 flex gap-2">
                             <a href="<%= opp.application_link %>" target="_blank" class="btn btn-primary sm-btn"><i class="fa-solid fa-arrow-up-right-from-square"></i> Apply Now</a>
-                            <% if(opp.deadlineMentioned) { %>
-                                <a href="<%= calLink %>" target="_blank" class="btn btn-secondary sm-btn"><i class="fa-regular fa-calendar-plus"></i> Add to Calendar</a>
+                            <% if(opp.calendarLink) { %>
+                                <a href="<%= opp.calendarLink %>" target="_blank" rel="noopener noreferrer" class="btn btn-secondary sm-btn"><i class="fa-regular fa-calendar-plus"></i> Add to Calendar</a>
                             <% } %>
                             <form action="/delete-opportunity/<%= opp._id %>" method="POST" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this opportunity? This action cannot be undone.');">
                                 <button type="submit" class="btn btn-danger sm-btn"><i class="fa-solid fa-trash"></i> Delete</button>
