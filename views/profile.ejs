@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Tracktern</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-gradient">
+    <nav class="navbar glass-nav">
+        <div class="nav-brand"><i class="fa-solid fa-bolt text-gradient"></i> Tracktern</div>
+        <div class="nav-links">
+            <span class="user-greeting">Hi, <%= user.name %>!</span>
+            <a href="/dashboard"><i class="fa-solid fa-border-all"></i> Dashboard</a>
+            <a href="/upload-resume"><i class="fa-solid fa-file-arrow-up"></i> Upload Resume</a>
+            <a href="/profile" class="active"><i class="fa-solid fa-user"></i> Profile</a>
+            <form action="/logout" method="POST" class="logout-form-inline" onsubmit="return confirm('Are you sure you want to logout? You will need to log back in to continue.');">
+                <button type="submit" class="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="profile-wrapper">
+
+        <!-- Header card -->
+        <div class="profile-header glass-card">
+            <div class="profile-avatar"><%= user.name.charAt(0).toUpperCase() %></div>
+            <div class="profile-header-info">
+                <h1 class="profile-name"><%= user.name %></h1>
+                <p class="profile-headline">
+                    <%= user.branch || 'Student' %><% if (user.year) { %> &nbsp;·&nbsp; <%= user.year %><% } %>
+                </p>
+            </div>
+        </div>
+
+        <!-- Info cards row -->
+        <div class="profile-info-grid">
+            <div class="profile-info-card glass-card">
+                <i class="fa-solid fa-envelope profile-info-icon"></i>
+                <div>
+                    <span class="info-label">Email</span>
+                    <span class="info-value"><%= user.email %></span>
+                </div>
+            </div>
+            <div class="profile-info-card glass-card">
+                <i class="fa-solid fa-graduation-cap profile-info-icon"></i>
+                <div>
+                    <span class="info-label">Branch</span>
+                    <span class="info-value"><%= user.branch || '—' %></span>
+                </div>
+            </div>
+            <div class="profile-info-card glass-card">
+                <i class="fa-solid fa-calendar-days profile-info-icon"></i>
+                <div>
+                    <span class="info-label">Year of Study</span>
+                    <span class="info-value"><%= user.year || '—' %></span>
+                </div>
+            </div>
+            <div class="profile-info-card glass-card">
+                <i class="fa-solid fa-code profile-info-icon"></i>
+                <div>
+                    <span class="info-label">Total Skills</span>
+                    <span class="info-value"><%= user.skills.length %> loaded</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Skills section -->
+        <div class="profile-section glass-card">
+            <h2 class="profile-section-title"><i class="fa-solid fa-laptop-code"></i> Your Skills</h2>
+            <% if (user.skills && user.skills.length > 0) { %>
+                <div class="skills-list mt-3 flex flex-wrap gap-2">
+                    <% user.skills.forEach(skill => { %>
+                        <span class="badge"><%= skill %></span>
+                    <% }) %>
+                </div>
+            <% } else { %>
+                <p class="text-muted mt-3">No skills loaded yet. <a href="/upload-resume" class="link">Upload your resume</a> to extract them automatically.</p>
+            <% } %>
+        </div>
+
+        <!-- Suggested Roles section -->
+        <div class="profile-section glass-card">
+            <div class="profile-section-header">
+                <h2 class="profile-section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Suggested Roles for You</h2>
+                <% if (rolesSource === 'ai') { %>
+                    <span class="roles-source-badge badge-ai"><i class="fa-solid fa-robot"></i> AI&ndash;powered</span>
+                <% } else if (rolesSource === 'static') { %>
+                    <span class="roles-source-badge badge-static"><i class="fa-solid fa-bolt"></i> Based on your skills</span>
+                <% } %>
+            </div>
+            <% if (suggestedRoles && suggestedRoles.length > 0) { %>
+                <div class="suggested-roles-grid mt-3">
+                    <% suggestedRoles.forEach((role, i) => { %>
+                        <div class="suggested-role-card">
+                            <div class="role-number"><%= i + 1 %></div>
+                            <div class="role-body">
+                                <span class="role-title"><%= role.title %></span>
+                                <span class="role-reason"><%= role.reason %></span>
+                            </div>
+                        </div>
+                    <% }) %>
+                </div>
+            <% } else { %>
+                <p class="text-muted mt-3">
+                    No skills loaded yet. <a href="/upload-resume" class="link">Upload your resume</a> to extract your skills — role suggestions will appear here automatically.
+                </p>
+            <% } %>
+        </div>
+
+    </div>
+</body>
+</html>

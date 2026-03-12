@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Tracktern</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-gradient flex-col mix-h-screen">
+    <nav class="navbar glass-nav">
+        <div class="nav-brand"><i class="fa-solid fa-bolt text-gradient"></i> Tracktern</div>
+        <div class="nav-links">
+            <a href="/dashboard" class="active"><i class="fa-solid fa-border-all"></i> Dashboard</a>
+            <a href="/upload-resume"><i class="fa-solid fa-file-arrow-up"></i> Upload Resume</a>
+            <a href="/profile"><i class="fa-solid fa-user"></i> Profile</a>
+            <button class="btn btn-primary add-opp-nav-btn" onclick="openOppModal()">
+                <i class="fa-solid fa-plus"></i> Add Opportunity
+            </button>
+            <span class="user-greeting ml-2">Hi, <%= user.name %>!</span>
+            <form id="logout-form" action="/logout" method="POST" class="logout-form-inline" onsubmit="return confirm('Are you sure you want to logout? You will need to log back in to continue.');">
+                <button type="submit" class="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="dashboard-main-wrapper">
+        <% if(success) { %>
+            <div class="alert alert-success mb-4"><%= success %></div>
+        <% } %>
+        <% if(error) { %>
+            <div class="alert alert-error mb-4"><%= error %></div>
+        <% } %>
+
+        <div class="skills-bar glass-card mb-4">
+            <span class="skills-bar-label"><i class="fa-solid fa-laptop-code"></i> Your Skills</span>
+            <div class="skills-list flex flex-wrap gap-2">
+                <% if(user.skills && user.skills.length > 0) { %>
+                    <% user.skills.forEach(skill => { %>
+                        <span class="badge"><%= skill %></span>
+                    <% }) %>
+                <% } else { %>
+                    <span class="text-xs text-muted">No skills loaded. <a href="/upload-resume" class="link">Upload Resume</a> to extract them.</span>
+                <% } %>
+            </div>
+        </div>
+
+        <div class="insights-panel glass-card mb-4 text-sm mt-2 p-3">
+            <h3 class="mb-2 text-glow" style="margin-bottom:8px;"><i class="fa-solid fa-chart-pie"></i> Your Opportunity Insights</h3>
+            <div class="flex gap-3 flex-wrap">
+                <div class="insight-stat bg-white p-2 rounded border border-slate-200" style="border: 1px solid var(--border-color); border-radius:6px; padding: 6px 10px;">
+                    <strong>Total Opportunities Tracked:</strong> <%= insights.totalOpportunities %>
+                </div>
+                <div class="insight-stat bg-white p-2 rounded border border-slate-200" style="border: 1px solid var(--border-color); border-radius:6px; padding: 6px 10px; color: var(--match-high);">
+                    <strong>High Match Opportunities:</strong> <%= insights.highMatchCount %>
+                </div>
+                <div class="insight-stat bg-white p-2 rounded border border-slate-200" style="border: 1px solid var(--border-color); border-radius:6px; padding: 6px 10px; color: var(--match-low);">
+                    <strong>Deadlines This Week:</strong> <%= insights.deadlinesThisWeek %>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="mb-4 text-glow"><i class="fa-solid fa-star"></i> Recommended Opportunities</h2>
+        <div class="upcoming-deadlines mb-5 flex gap-3 text-sm" style="overflow-x:auto; padding-bottom:8px;">
+            <% const recommendedOpps = opportunities.filter(opp => opp.priority === 'Apply Immediately' || opp.matchScore > 70).slice(0,3); %>
+            <% if(recommendedOpps.length === 0) { %>
+                <p class="text-muted text-xs mb-3">No high match recommendations right now. Keep adding opportunities!</p>
+            <% } %>
+            <% recommendedOpps.forEach(opp => { %>
+                <div class="deadline-pill <%= opp.urgencyLabel === 'Critical' ? 'urgent critical-urgent' : opp.urgencyLabel === 'Urgent' ? 'urgent' : '' %> glass-chip p-3">
+                    <i class="fa-regular fa-building"></i> <strong><%= opp.company %></strong> - <%= opp.role %>
+                    <span class="ml-2 block mt-1" style="font-size:0.8rem; margin-top:4px; opacity:0.9;">
+                        <% if(!opp.deadlineMentioned) { %>
+                            — Deadline not mentioned
+                        <% } else if(opp.totalHours >= 0 && opp.totalHours < 24) { %>
+                            — <%= opp.hoursLeft %> hours left
+                        <% } else if(opp.daysLeft >= 0) { %>
+                            — <%= opp.daysLeft %> days left
+                        <% } else { %>
+                            — Ended
+                        <% } %>
+                    </span>
+                </div>
+            <% }) %>
+        </div>
+
+        <h2 class="mb-4 text-glow"><i class="fa-solid fa-list-check"></i> All Opportunities</h2>
+        <div class="opportunities-grid">
+            <% if(opportunities.length === 0) { %>
+                <p class="text-muted">No opportunities added yet. Click <strong>Add Opportunity</strong> in the navbar to get started!</p>
+            <% } %>
+
+            <% opportunities.forEach(opp => { %>
+                <div class="glass-card opp-card">
+                    <div class="opp-header">
+                        <div>
+                            <h3 class="opp-company"><%= opp.company %></h3>
+                            <p class="opp-role text-gradient"><%= opp.role %></p>
+                            <p class="mt-1" style="font-size:0.75rem; font-weight:600; margin-top:4px; opacity:0.85;">
+                                <% if(opp.priority === 'Apply Immediately') { %>🔥 Apply Immediately<% } %>
+                                <% if(opp.priority === 'Consider Applying') { %>⚠ Consider Applying<% } %>
+                                <% if(opp.priority === 'Low Priority') { %>❌ Low Priority<% } %>
+                            </p>
+                        </div>
+                        <div style="text-align: right; display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+                            <span class="match-badge <%= opp.matchLabel.toLowerCase().replace(' ', '-') %>">
+                                <%= opp.matchLabel %> (<%= opp.matchScore %>%)
+                            </span>
+                            <span class="authenticity-badge <%= opp.authenticityClass %>">
+                                Authenticity: <%= opp.authenticityLabel %> (<%= opp.authenticityScore %>%)
+                            </span>
+                            <span style="font-size:0.75rem; font-weight:700;" class="<%= opp.urgencyLabel === 'Critical' ? 'text-danger' : opp.urgencyLabel === 'Urgent' ? 'text-warning' : 'text-muted' %>">
+                                <% if(opp.urgencyLabel === 'Critical') { %>🔥 Critical<% } %>
+                                <% if(opp.urgencyLabel === 'Urgent') { %>⚠ Urgent<% } %>
+                                <% if(opp.urgencyLabel === 'Upcoming') { %>Upcoming Deadline<% } %>
+                                <% if(opp.urgencyLabel === 'Normal') { %>Normal Opportunity<% } %>
+                                <% if(opp.urgencyLabel === 'Passed') { %>Deadline Passed<% } %>
+                                <% if(opp.urgencyLabel === 'No Deadline') { %>Deadline Not Mentioned<% } %>
+                                <% if(opp.deadlineMentioned && opp.totalHours >= 0 && opp.totalHours < 24) { %>
+                                    – <%= opp.hoursLeft %> hours left
+                                <% } else if(opp.deadlineMentioned && opp.daysLeft >= 0) { %>
+                                    – <%= opp.daysLeft %> days left
+                                <% } %>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="opp-body mt-3">
+                        <p class="text-sm"><strong>Eligibility:</strong> <%= opp.eligibility %></p>
+                        <p class="text-sm"><strong>Deadline:</strong>
+                            <% if(opp.deadlineMentioned) { %>
+                                <%= new Date(opp.deadline).toLocaleDateString() %> at
+                                <%= new Date(opp.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %>
+                            <% } else { %>
+                                Not mentioned in posting
+                            <% } %>
+                        </p>
+                        <p class="text-sm authenticity-note"><strong>Authenticity Check:</strong> <%= opp.authenticity_reason %></p>
+
+                        <div style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; margin-top:12px; font-size:0.75rem;">
+                            <strong style="display:block; margin-bottom:6px;">Why this match?</strong>
+                            <ul style="list-style:none; padding:0; margin:0;" class="flex-col gap-1">
+                                <% if(opp.matchedSkills && opp.matchedSkills.length > 0) { %>
+                                    <% opp.matchedSkills.forEach(s => { %>
+                                        <li style="color:var(--match-high); margin-bottom:2px;">✔ <%= s %> found in resume</li>
+                                    <% }) %>
+                                <% } %>
+                                <% if(opp.missingSkills && opp.missingSkills.length > 0) { %>
+                                    <% opp.missingSkills.forEach(s => { %>
+                                        <li style="color:var(--match-low); margin-bottom:2px;">❌ Missing <%= s %></li>
+                                    <% }) %>
+                                <% } %>
+                            </ul>
+                        </div>
+
+                        <%
+                            const eventTitle = encodeURIComponent(`${opp.company} ${opp.role}`);
+                            const eventDate = new Date(opp.deadline).toISOString().replace(/-|:|\.\d\d\d/g,"");
+                            const eventDesc = encodeURIComponent(`Company: ${opp.company}\nRole: ${opp.role}\nLink: ${opp.application_link}`);
+                            const calLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&dates=${eventDate}/${eventDate}&details=${eventDesc}`;
+                        %>
+
+                        <div class="opp-actions mt-4 flex gap-2">
+                            <a href="<%= opp.application_link %>" target="_blank" class="btn btn-primary sm-btn"><i class="fa-solid fa-arrow-up-right-from-square"></i> Apply Now</a>
+                            <% if(opp.deadlineMentioned) { %>
+                                <a href="<%= calLink %>" target="_blank" class="btn btn-secondary sm-btn"><i class="fa-regular fa-calendar-plus"></i> Add to Calendar</a>
+                            <% } %>
+                            <form action="/delete-opportunity/<%= opp._id %>" method="POST" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this opportunity? This action cannot be undone.');">
+                                <button type="submit" class="btn btn-danger sm-btn"><i class="fa-solid fa-trash"></i> Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    </div>
+
+    <!-- ── Add Opportunity Modal ──────────────────────────────── -->
+    <div id="add-opp-modal" class="modal-backdrop" aria-hidden="true">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fa-solid fa-wand-magic-sparkles text-gradient"></i> Add Opportunity</h3>
+                <button class="modal-close-btn" onclick="closeOppModal()" aria-label="Close modal">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <p class="text-xs text-muted mt-1 mb-3">Paste a recruitment message, add a direct opportunity link, or use both. Tracktern will extract the details automatically.</p>
+            <form id="parse-opportunity-form" action="/parse-opportunity" method="POST">
+                <div class="form-group">
+                    <label for="source-link">Opportunity Link</label>
+                    <input id="source-link" name="source_link" type="text" inputmode="url" placeholder="https://careers.company.com/job/123" class="glass-input w-full">
+                </div>
+                <div class="form-group">
+                    <label for="raw-message-text">Opportunity Message</label>
+                    <textarea id="raw-message-text" name="raw_message_text" rows="8" placeholder="Example: Google is hiring STEP Interns who are in 2nd year... Deadline is May 10, 2026. Apply here: link.xyz" class="glass-input w-full"></textarea>
+                </div>
+                <button id="parse-opportunity-btn" type="submit" class="btn btn-primary w-full mt-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Parse & Save
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── Full-Screen Loading Overlay ─────────────────────────── -->
+    <div id="opp-loading-overlay" class="opp-loading-overlay" aria-hidden="true">
+        <div class="opp-loading-visual" aria-hidden="true">
+            <i class="fa-solid fa-hourglass-half"></i>
+        </div>
+        <h3 class="opp-loading-title">Parsing Opportunity...</h3>
+        <p class="opp-loading-text">Tracktern AI is extracting company, role, deadline, and eligibility from your message or link.</p>
+    </div>
+
+    <script>
+        // ── Modal open / close ─────────────────────────────────────
+        const addOppModal = document.getElementById('add-opp-modal');
+
+        function openOppModal() {
+            addOppModal.classList.add('is-visible');
+            addOppModal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('no-scroll');
+            const firstInput = addOppModal.querySelector('input[name="source_link"]');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }
+
+        function closeOppModal() {
+            addOppModal.classList.remove('is-visible');
+            addOppModal.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('no-scroll');
+        }
+
+        // Close when clicking outside the card
+        addOppModal.addEventListener('click', function (e) {
+            if (e.target === addOppModal) closeOppModal();
+        });
+
+        // Close on Escape
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && addOppModal.classList.contains('is-visible')) closeOppModal();
+        });
+
+        // ── Parse & Save – show full-screen loading overlay ───────
+        (function () {
+            const form = document.getElementById('parse-opportunity-form');
+            const overlay = document.getElementById('opp-loading-overlay');
+            const submitBtn = document.getElementById('parse-opportunity-btn');
+            if (!form) return;
+
+            form.addEventListener('submit', function () {
+                const messageInput = form.querySelector('textarea[name="raw_message_text"]');
+                const linkInput = form.querySelector('input[name="source_link"]');
+                const hasMessage = messageInput && messageInput.value.trim();
+                const hasLink = linkInput && linkInput.value.trim();
+                if (!hasMessage && !hasLink) {
+                    alert('Paste an opportunity message or enter a link first.');
+                    if (linkInput) {
+                        linkInput.focus();
+                    }
+                    return;
+                }
+
+                // Close modal first, then reveal full-screen overlay
+                closeOppModal();
+
+                if (overlay) {
+                    overlay.classList.add('is-visible');
+                    overlay.setAttribute('aria-hidden', 'false');
+                }
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Parsing...';
+                }
+                document.body.classList.add('no-scroll');
+            });
+        })();
+
+    </script>
+</body>
+</html>

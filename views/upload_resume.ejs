@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Resume - Tracktern</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-gradient">
+    <nav class="navbar glass-nav">
+        <div class="nav-brand"><i class="fa-solid fa-bolt text-gradient"></i> Tracktern</div>
+        <div class="nav-links">
+            <a href="/dashboard"><i class="fa-solid fa-border-all"></i> Dashboard</a>
+            <a href="/upload-resume" class="active"><i class="fa-solid fa-file-arrow-up"></i> Upload Resume</a>
+            <a href="/profile"><i class="fa-solid fa-user"></i> Profile</a>
+            <form action="/logout" method="POST" class="logout-form-inline" onsubmit="return confirm('Are you sure you want to logout? You will need to log back in to continue.');">
+                <button type="submit" class="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="glass-container main-content mt-4">
+        <h1><i class="fa-solid fa-file-lines"></i> Extract Skills from Resume</h1>
+        <p>Paste your resume text below completely, and our AI will extract relevant skills to match opportunities.</p>
+        
+        <% if(success) { %>
+            <div class="alert alert-success"><%= success %></div>
+        <% } %>
+        <% if(error) { %>
+            <div class="alert alert-error"><%= error %></div>
+        <% } %>
+
+        <form action="/upload-resume" method="POST">
+            <div class="form-group">
+                <label for="resume_text">Resume Text</label>
+                <textarea name="resume_text" id="resume_text" rows="15" required placeholder="Paste your resume content here..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Extract Skills</button>
+        </form>
+
+        <% if(locals.extracted) { %>
+            <div class="extracted-skills mt-4 p-3 glass-card">
+                <h3><i class="fa-solid fa-check-double"></i> Extracted Data:</h3>
+                <p><strong>Branch:</strong> <%= extracted.branch || 'Not Found' %></p>
+                <div class="skills-list mt-2">
+                    <% if(extracted.skills && extracted.skills.length > 0) { %>
+                        <% extracted.skills.forEach(skill => { %>
+                            <span class="badge"><%= skill %></span>
+                        <% }) %>
+                    <% } %>
+                    <% if(extracted.technologies && extracted.technologies.length > 0) { %>
+                        <% extracted.technologies.forEach(tech => { %>
+                            <span class="badge badge-tech"><%= tech %></span>
+                        <% }) %>
+                    <% } %>
+                </div>
+            </div>
+        <% } %>
+    </div>
+</body>
+</html>
