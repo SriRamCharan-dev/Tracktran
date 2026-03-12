@@ -624,17 +624,16 @@ router.get('/dashboard', async (req, res) => {
 
 // Parse Opportunity Form
 router.post('/parse-opportunity', async (req, res) => {
-    const isBot = req.body.source === 'telegram';
-    if (!req.session.userId && !isBot) return res.redirect('/login');
+    if (!req.session.userId) return res.redirect('/login');
 
     const rawMessageText = normalizeString(req.body.raw_message_text);
     const sourceLink = normalizeUrlInput(req.body.source_link);
 
     if (!rawMessageText && !normalizeString(req.body.source_link)) {
-        return isBot ? res.status(400).json({ error: 'empty_message' }) : res.redirect('/dashboard?error=empty_message');
+        return res.redirect('/dashboard?error=empty_message');
     }
     if (!rawMessageText && normalizeString(req.body.source_link) && !sourceLink) {
-        return isBot ? res.status(400).json({ error: 'invalid_link' }) : res.redirect('/dashboard?error=invalid_link');
+        return res.redirect('/dashboard?error=invalid_link');
     }
 
     try {
@@ -744,9 +743,6 @@ Content: ${sourceText}`;
         });
 
         if (existingOpp) {
-            if (isBot) {
-                return res.status(200).json({ success: true, message: 'opp_exists', data: existingOpp });
-            }
             return res.redirect('/dashboard?error=opp_exists');
         }
 
@@ -763,17 +759,9 @@ Content: ${sourceText}`;
             authenticity_reason: authenticityCheck.reason
         });
         await newOpp.save();
-
-        if (isBot) {
-            return res.status(200).json({ success: true, message: 'opp_added', data: newOpp });
-        }
         res.redirect('/dashboard?success=opp_added');
-
     } catch (err) {
         console.error('Opportunity save error:', err);
-        if (isBot) {
-            return res.status(500).json({ error: 'parse_failed' });
-        }
         res.redirect('/dashboard?error=parse_failed');
     }
 });
