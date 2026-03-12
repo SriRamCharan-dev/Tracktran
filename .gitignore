@@ -6,3 +6,4 @@ npm-debug.log*
 *.log
 out.txt
 out2.txt
+test_*.js
