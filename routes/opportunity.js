@@ -497,7 +497,8 @@ router.get('/dashboard', async (req, res) => {
             invalid_link: 'Please enter a valid opportunity link.',
             parse_failed: 'Could not parse that message. Please try again with more details.',
             invalid_opp_id: 'Invalid opportunity selected for deletion.',
-            delete_failed: 'Could not delete that opportunity. Please try again.'
+            delete_failed: 'Could not delete that opportunity. Please try again.',
+            opp_exists: 'This opportunity is already in your dashboard.'
         };
         const successMessages = {
             opp_added: 'Opportunity added successfully!',
@@ -733,6 +734,20 @@ Content: ${sourceText}`;
             } else {
                 deadline = buildFallbackDeadline();
             }
+        }
+
+        // Duplicate check
+        const existingOpp = await Opportunity.findOne({
+            company,
+            role,
+            application_link: applicationLink
+        });
+
+        if (existingOpp) {
+            if (isBot) {
+                return res.status(200).json({ success: true, message: 'opp_exists', data: existingOpp });
+            }
+            return res.redirect('/dashboard?error=opp_exists');
         }
 
         const newOpp = new Opportunity({
