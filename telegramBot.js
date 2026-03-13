@@ -5,6 +5,27 @@ const { GoogleGenAI } = require('@google/genai');
 
 const Opportunity = require('./models/Opportunity');
 
+function isTruthy(value) {
+    return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+}
+
+function shouldStartPollingBot() {
+    if ((process.env.NODE_ENV || '').toLowerCase() === 'test') {
+        return false;
+    }
+
+    if (process.env.VERCEL) {
+        return false;
+    }
+
+    const onRender = isTruthy(process.env.RENDER) || Boolean(process.env.RENDER_EXTERNAL_URL);
+    if (onRender && !isTruthy(process.env.ENABLE_TELEGRAM_BOT)) {
+        return false;
+    }
+
+    return true;
+}
+
 // Add these placeholders if variables don't exist
 const token = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const LLM_API_KEY = (process.env.LLM_API_KEY || process.env.GEMINI_API_KEY || '').trim();
@@ -20,14 +41,33 @@ if (!LLM_API_KEY) {
 let bot;
 
 if (token && LLM_API_KEY) {
-    if (process.env.VERCEL) {
-        console.log(' [Bot] Running on Vercel: Polling disabled. (Use webhooks for serverless)');
+    if (!shouldStartPollingBot()) {
+        if (process.env.VERCEL) {
+            console.log(' [Bot] Running on Vercel: Polling disabled. (Use webhooks for serverless)');
+        } else {
+            console.log(' [Bot] Polling disabled for this process. Set ENABLE_TELEGRAM_BOT=true on exactly one bot instance to enable.');
+        }
     } else {
         console.log(' [Bot] Initializing GenAI and Telegram Bot...');
         const ai = new GoogleGenAI({ apiKey: LLM_API_KEY });
         bot = new TelegramBot(token, { polling: true });
 
         console.log(' [Bot] Telegram bot active and polling...');
+
+        bot.on('polling_error', async (error) => {
+            const message = String((error && error.message) || error || 'Unknown polling error');
+            console.error(' [Bot] polling_error:', message);
+
+            // Telegram allows only one active getUpdates long-polling consumer per bot token.
+            if (message.includes('409 Conflict')) {
+                console.error(' [Bot] Polling conflict detected (409). Stopping polling for this instance.');
+                try {
+                    await bot.stopPolling();
+                } catch (stopErr) {
+                    console.error(' [Bot] Failed to stop polling after 409:', stopErr && stopErr.message ? stopErr.message : stopErr);
+                }
+            }
+        });
 
     // Matches "/add_opp [whatever]"
     bot.onText(/\/add_opp (.+)/, async (msg, match) => {
