@@ -3,61 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Resume - Tracktern</title>
+    <meta name="description" content="AI Resume Analysis – Tracktern">
+    <title>AI Resume Intelligence – Tracktern</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .resume-page-wrap { max-width: 920px; margin: 2rem auto; padding: 0 1.5rem 4rem; display: flex; flex-direction: column; gap: 1.5rem; }
+        .resume-hero {
+            text-align: center; padding: 2.5rem 2rem;
+            background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(6,182,212,0.05));
+            border: 1px solid rgba(99,102,241,0.15);
+            border-radius: 22px;
+            position: relative; overflow: hidden;
+        }
+        .resume-hero::before {
+            content: ''; position: absolute; top: -60%; left: 50%;
+            transform: translateX(-50%);
+            width: 400px; height: 300px;
+            background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .resume-hero h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2rem; font-weight: 800; line-height: 1.15;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+        .resume-hero p { color: #64748b; font-size: 0.95rem; line-height: 1.55; max-width: 540px; margin: 0 auto 1.5rem; }
+        .feature-pill-row { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+        .feature-pill {
+            background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 999px; padding: 0.3rem 0.8rem;
+            font-size: 0.75rem; font-weight: 600; color: #a5b4fc;
+            display: inline-flex; align-items: center; gap: 0.35rem;
+        }
+        .resume-form-card { padding: 2rem 2.25rem; }
+        .resume-textarea {
+            width: 100%; min-height: 240px; resize: vertical;
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+            color: #e2e8f0; padding: 1rem 1.1rem; border-radius: 12px;
+            font-size: 0.92rem; font-family: 'Inter', monospace;
+            transition: all 0.2s ease; line-height: 1.6;
+        }
+        .resume-textarea:focus {
+            border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+            background: rgba(99,102,241,0.04); outline: none;
+        }
+        .char-counter { font-size: 0.72rem; color: #475569; text-align: right; margin-top: 0.3rem; }
+        .char-counter.warn { color: #f59e0b; }
+        .char-counter.good { color: #10b981; }
+
+        /* Result sections */
+        .result-card { border-radius: 18px; position: relative; overflow: hidden; }
+        .result-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;
+        }
+        .result-title {
+            font-family: 'Outfit', sans-serif; font-size: 1.05rem; font-weight: 800;
+            color: #f8fafc; display: flex; align-items: center; gap: 0.5rem;
+        }
+        .result-title i { background: linear-gradient(135deg,#6366f1,#06b6d4); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+
+        /* Score ring */
+        .score-ring-large {
+            width: 110px; height: 110px; border-radius: 50%;
+            background: conic-gradient(#6366f1 var(--score-deg, 0deg), rgba(255,255,255,0.04) 0deg);
+            display: flex; align-items: center; justify-content: center;
+            position: relative; margin: 0 auto 1rem;
+            box-shadow: 0 0 30px rgba(99,102,241,0.35), 0 0 60px rgba(99,102,241,0.1);
+        }
+        .score-ring-large::before {
+            content: ''; width: 86px; height: 86px; border-radius: 50%;
+            background: #0f1729; position: absolute;
+        }
+        .score-ring-large .score-inner { position: relative; z-index:1; text-align: center; }
+        .score-inner .score-num { font-family:'Outfit',sans-serif; font-size:1.7rem; font-weight:800; color:#f8fafc; line-height:1; }
+        .score-inner .score-denom { font-size:0.75rem; color:#64748b; font-weight:600; }
+
+        /* Score descriptors */
+        .score-label {
+            padding: 0.3rem 0.9rem; border-radius: 999px;
+            font-size: 0.8rem; font-weight: 700; display: inline-block;
+        }
+        .score-low { background: rgba(239,68,68,0.12); color: #fca5a5; border: 1px solid rgba(239,68,68,0.25); }
+        .score-med { background: rgba(245,158,11,0.12); color: #fde68a; border: 1px solid rgba(245,158,11,0.25); }
+        .score-high { background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.25); }
+        .score-excellent { background: rgba(99,102,241,0.12); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); }
+
+        /* Insight grid 2-col */
+        .insight-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 600px) { .insight-2col { grid-template-columns: 1fr; } }
+
+        .analyze-btn {
+            width: 100%; padding: 1rem; border: none; border-radius: 12px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white; font-size: 1.05rem; font-weight: 700; font-family: 'Outfit', sans-serif;
+            cursor: pointer; margin-top: 1.25rem;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            box-shadow: 0 6px 22px rgba(99,102,241,0.45); transition: all 0.2s ease;
+        }
+        .analyze-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,0.55); }
+        .analyze-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none !important; }
+    </style>
 </head>
-<body class="bg-gradient">
+<body>
     <nav class="navbar glass-nav">
-        <div class="nav-brand"><i class="fa-solid fa-bolt text-gradient"></i> Tracktern</div>
+        <div class="nav-brand"><i class="fa-solid fa-bolt"></i> Tracktern</div>
         <div class="nav-links">
             <a href="/dashboard"><i class="fa-solid fa-border-all"></i> Dashboard</a>
-            <a href="/upload-resume" class="active"><i class="fa-solid fa-file-arrow-up"></i> Upload Resume</a>
+            <a href="/upload-resume" class="active"><i class="fa-solid fa-file-arrow-up"></i> Resume</a>
             <a href="/profile"><i class="fa-solid fa-user"></i> Profile</a>
-            <form action="/logout" method="POST" class="logout-form-inline" onsubmit="return confirm('Are you sure you want to logout? You will need to log back in to continue.');">
+            <form action="/logout" method="POST" class="logout-form-inline" onsubmit="return confirm('Log out of Tracktern?');">
                 <button type="submit" class="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
             </form>
         </div>
     </nav>
 
-    <div class="glass-container main-content mt-4">
-        <h1><i class="fa-solid fa-file-lines"></i> Extract Skills from Resume</h1>
-        <p>Paste your resume text below completely, and our AI will extract relevant skills to match opportunities.</p>
-        
+    <div class="resume-page-wrap">
+        <!-- Hero Banner -->
+        <div class="resume-hero">
+            <h1><i class="fa-solid fa-microchip"></i> AI Resume Intelligence</h1>
+            <p>Paste your resume text for instant AI-powered skill extraction, score analysis, and actionable improvement recommendations.</p>
+            <div class="feature-pill-row">
+                <span class="feature-pill"><i class="fa-solid fa-star"></i> Resume Score 0-100</span>
+                <span class="feature-pill"><i class="fa-solid fa-magnifying-glass"></i> Skill Extraction</span>
+                <span class="feature-pill"><i class="fa-solid fa-brain"></i> AI Feedback</span>
+                <span class="feature-pill"><i class="fa-solid fa-pen-nib"></i> Bullet Rewrites</span>
+                <span class="feature-pill"><i class="fa-solid fa-bullseye"></i> Missing Skills</span>
+            </div>
+        </div>
+
         <% if(success) { %>
-            <div class="alert alert-success"><%= success %></div>
+            <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <%= success %></div>
         <% } %>
         <% if(error) { %>
-            <div class="alert alert-error"><%= error %></div>
+            <div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i> <%= error %></div>
         <% } %>
 
-        <form action="/upload-resume" method="POST">
-            <div class="form-group">
-                <label for="resume_text">Resume Text</label>
-                <textarea name="resume_text" id="resume_text" rows="15" required placeholder="Paste your resume content here..."></textarea>
+        <!-- Upload Form -->
+        <div class="glass-card resume-form-card">
+            <h2 class="text-glow mb-3" style="font-size:1rem;margin-bottom:1rem;font-family:'Outfit',sans-serif;display:flex;align-items:center;gap:0.5rem;">
+                <i class="fa-solid fa-paste" style="background:linear-gradient(135deg,#6366f1,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;"></i>
+                Paste Your Resume
+            </h2>
+            <form action="/upload-resume" method="POST" id="resume-form">
+                <div class="form-group" style="margin-bottom:0.5rem;">
+                    <label for="resume_text" style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.5rem;">
+                        Resume Text <span style="color:#ef4444;font-size:0.75rem;">*</span>
+                    </label>
+                    <textarea name="resume_text" id="resume_text" class="resume-textarea" required
+                        placeholder="Paste the full text of your resume here...&#10;&#10;Include: Skills, Projects, Experience, Education, Certifications&#10;&#10;More detail = better AI analysis."></textarea>
+                    <div class="char-counter" id="char-counter">0 / 32,000 characters</div>
+                </div>
+                <button type="submit" class="analyze-btn" id="analyze-btn">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze with AI
+                </button>
+            </form>
+        </div>
+
+        <!-- Analysis Results -->
+        <% if(locals.extracted) { %>
+            <!-- Score Overview -->
+            <div class="glass-card result-card" style="border-left: 3px solid #6366f1;">
+                <div class="result-header">
+                    <span class="result-title"><i class="fa-solid fa-chart-simple"></i> Analysis Complete</span>
+                    <% const score = extracted.resumeScore || 0; %>
+                    <% const scoreLabel = score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Average' : 'Needs Work'; %>
+                    <% const scoreClass = score >= 80 ? 'score-excellent' : score >= 60 ? 'score-high' : score >= 40 ? 'score-med' : 'score-low'; %>
+                    <span class="score-label <%= scoreClass %>"><%= scoreLabel %></span>
+                </div>
+
+                <div style="text-align:center; margin-bottom: 1.5rem;">
+                    <div class="score-ring-large" style="--score-deg:<%= Math.round((score/100)*360) %>deg;">
+                        <div class="score-inner">
+                            <div class="score-num"><%= score %></div>
+                            <div class="score-denom">/100</div>
+                        </div>
+                    </div>
+                    <div class="progress-bar-wrap" style="max-width:300px;margin:0 auto;">
+                        <div class="progress-bar-fill" style="width:<%= score %>%;"></div>
+                    </div>
+                </div>
+
+                <% if(extracted.branch) { %>
+                    <div style="text-align:center; margin-bottom: 1rem;">
+                        <span class="badge" style="font-size:0.85rem;padding:0.4rem 1rem;">
+                            <i class="fa-solid fa-graduation-cap"></i> <%= extracted.branch %>
+                        </span>
+                    </div>
+                <% } %>
             </div>
 
-            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Extract Skills</button>
-        </form>
-
-        <% if(locals.extracted) { %>
-            <div class="extracted-skills mt-4 p-3 glass-card">
-                <h3><i class="fa-solid fa-check-double"></i> Extracted Data:</h3>
-                <p><strong>Branch:</strong> <%= extracted.branch || 'Not Found' %></p>
-                <div class="skills-list mt-2">
-                    <% if(extracted.skills && extracted.skills.length > 0) { %>
-                        <% extracted.skills.forEach(skill => { %>
-                            <span class="badge"><%= skill %></span>
+            <!-- Detected Skills -->
+            <div class="glass-card result-card" style="border-left: 3px solid #06b6d4;">
+                <div class="result-header">
+                    <span class="result-title"><i class="fa-solid fa-microchip"></i> Detected Skills</span>
+                    <span class="badge" style="background:rgba(6,182,212,0.1);border-color:rgba(6,182,212,0.2);color:#67e8f9;"><%= (extracted.detectedSkills || []).length %> skills found</span>
+                </div>
+                <div class="skills-list flex flex-wrap gap-2">
+                    <% if(extracted.detectedSkills && extracted.detectedSkills.length > 0) { %>
+                        <% extracted.detectedSkills.forEach(skill => { %>
+                            <span class="badge badge-tech"><%= skill %></span>
                         <% }) %>
-                    <% } %>
-                    <% if(extracted.technologies && extracted.technologies.length > 0) { %>
-                        <% extracted.technologies.forEach(tech => { %>
-                            <span class="badge badge-tech"><%= tech %></span>
-                        <% }) %>
+                    <% } else { %>
+                        <span class="text-muted text-xs">No clear skills were detected. Try adding a dedicated Skills section.</span>
                     <% } %>
                 </div>
             </div>
+
+            <!-- Strengths & Weaknesses -->
+            <div class="insight-2col">
+                <div class="glass-card result-card" style="border-left: 3px solid #10b981;">
+                    <div class="result-header">
+                        <span class="result-title"><i class="fa-solid fa-thumbs-up"></i> Strengths</span>
+                    </div>
+                    <ul class="suggestion-list">
+                        <% if(extracted.strengths && extracted.strengths.length > 0) { %>
+                            <% extracted.strengths.forEach(item => { %><li style="margin-bottom:0.3rem;"><%= item %></li><% }) %>
+                        <% } else { %>
+                            <li>Strength signals were limited in the provided text.</li>
+                        <% } %>
+                    </ul>
+                </div>
+
+                <div class="glass-card result-card" style="border-left: 3px solid #ef4444;">
+                    <div class="result-header">
+                        <span class="result-title"><i class="fa-solid fa-triangle-exclamation"></i> Weaknesses</span>
+                    </div>
+                    <ul class="suggestion-list">
+                        <% if(extracted.weaknesses && extracted.weaknesses.length > 0) { %>
+                            <% extracted.weaknesses.forEach(item => { %><li style="margin-bottom:0.3rem;"><%= item %></li><% }) %>
+                        <% } else { %>
+                            <li>No major weaknesses detected.</li>
+                        <% } %>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Improvement Suggestions -->
+            <div class="glass-card result-card" style="border-left: 3px solid #f59e0b;">
+                <div class="result-header">
+                    <span class="result-title"><i class="fa-solid fa-lightbulb"></i> Improvement Suggestions</span>
+                </div>
+                <ul class="suggestion-list">
+                    <% if(extracted.suggestions && extracted.suggestions.length > 0) { %>
+                        <% extracted.suggestions.forEach(item => { %><li style="margin-bottom:0.4rem;color:#e2e8f0;"><%= item %></li><% }) %>
+                    <% } else { %>
+                        <li>Add stronger quantified project outcomes.</li>
+                    <% } %>
+                </ul>
+            </div>
+
+            <!-- Missing Skills -->
+            <div class="glass-card result-card" style="border-left: 3px solid #ec4899;">
+                <div class="result-header">
+                    <span class="result-title"><i class="fa-solid fa-circle-minus"></i> Missing Skills</span>
+                    <span style="font-size:0.75rem;color:#64748b;">Add these to boost your internship match scores</span>
+                </div>
+                <div class="skills-list flex flex-wrap gap-2">
+                    <% if(extracted.missingSkills && extracted.missingSkills.length > 0) { %>
+                        <% extracted.missingSkills.forEach(skill => { %>
+                            <span class="badge badge-missing-skill"><i class="fa-solid fa-plus" style="font-size:0.6rem;"></i> <%= skill %></span>
+                        <% }) %>
+                    <% } else { %>
+                        <span class="text-muted text-xs">No major missing skills identified. Great job!</span>
+                    <% } %>
+                </div>
+            </div>
+
+            <!-- AI Bullet Rewrites -->
+            <% if(extracted.improvedBullets && extracted.improvedBullets.length > 0) { %>
+            <div class="glass-card result-card" style="border-left: 3px solid #8b5cf6;">
+                <div class="result-header">
+                    <span class="result-title"><i class="fa-solid fa-pen-nib"></i> AI Bullet Rewrites</span>
+                    <span style="font-size:0.75rem;color:#64748b;">Before → After comparisons</span>
+                </div>
+                <div class="improvement-grid">
+                    <% extracted.improvedBullets.forEach(item => { %>
+                        <div class="improvement-card">
+                            <p class="improvement-label">Original</p>
+                            <p class="improvement-original"><%= item.original %></p>
+                            <p class="improvement-label">AI Improved</p>
+                            <p class="improvement-improved"><%= item.improved %></p>
+                        </div>
+                    <% }) %>
+                </div>
+            </div>
+            <% } %>
+
+            <!-- CTA -->
+            <div style="text-align:center; padding: 1rem 0;">
+                <a href="/dashboard" class="btn btn-primary" style="padding:0.85rem 2rem;font-size:1rem;">
+                    <i class="fa-solid fa-border-all"></i> Go to Dashboard to See Matches
+                </a>
+            </div>
         <% } %>
     </div>
+
+    <script>
+        // Character counter
+        const textarea = document.getElementById('resume_text');
+        const counter = document.getElementById('char-counter');
+
+        textarea.addEventListener('input', function() {
+            const len = this.value.length;
+            counter.textContent = `${len.toLocaleString()} / 32,000 characters`;
+            counter.className = 'char-counter';
+            if (len > 28000) counter.classList.add('warn');
+            else if (len >= 300) counter.classList.add('good');
+        });
+
+        // Loading state
+        document.getElementById('resume-form').addEventListener('submit', function() {
+            const btn = document.getElementById('analyze-btn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing with AI...';
+            btn.disabled = true;
+        });
+    </script>
 </body>
 </html>

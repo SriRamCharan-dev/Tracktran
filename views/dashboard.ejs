@@ -3,172 +3,572 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Tracktern</title>
+    <meta name="description" content="Tracktern Dashboard – AI-powered internship intelligence">
+    <title>Dashboard – Tracktern</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* Section headings */
+        .section-heading {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #f8fafc;
+            margin-bottom: 1.25rem;
+        }
+        .section-heading i {
+            background: linear-gradient(135deg, #6366f1, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .section-heading .count-badge {
+            background: rgba(99,102,241,0.15);
+            border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 999px;
+            padding: 0.15rem 0.6rem;
+            font-size: 0.72rem;
+            color: #a5b4fc;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Analytics card special coloring */
+        .analytics-card:nth-child(1) h3 { color: #a5b4fc; }
+        .analytics-card:nth-child(2) h3 { color: #67e8f9; }
+        .analytics-card:nth-child(3) h3 { color: #6ee7b7; }
+        .analytics-card:nth-child(4) h3 { color: #c4b5fd; }
+        .analytics-card:nth-child(5) h3 { color: #fde68a; }
+        .analytics-card:nth-child(6) h3 { color: #f9a8d4; }
+
+        /* Opportunity card glow on hover */
+        .opp-card:hover {
+            border-color: rgba(99,102,241,0.35);
+            box-shadow: 0 8px 36px rgba(0,0,0,0.5), 0 0 30px rgba(99,102,241,0.15);
+        }
+
+        /* Why match expandable */
+        .match-details-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #6366f1;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: inherit;
+            padding: 0.35rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: color 0.2s;
+        }
+        .match-details-toggle:hover { color: #a5b4fc; }
+
+        /* Google Calendar button */
+        .gcal-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            font-family: inherit;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            background: rgba(66, 133, 244, 0.12);
+            border: 1px solid rgba(66, 133, 244, 0.3);
+            color: #93c5fd;
+        }
+        .gcal-btn:hover {
+            background: rgba(66, 133, 244, 0.22);
+            border-color: rgba(66, 133, 244, 0.55);
+            color: #bfdbfe;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(66,133,244,0.25);
+        }
+        .gcal-btn i { font-size: 0.78rem; }
+
+        /* Mini cal chip inside recommended row */
+        .rec-cal-link {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #93c5fd;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+            opacity: 0.8;
+            transition: opacity 0.15s;
+        }
+        .rec-cal-link:hover { opacity: 1; text-decoration: underline; }
+
+        .match-details-panel {
+            display: none;
+        }
+        .match-details-panel.open {
+            display: block;
+            animation: fadeInPanel 0.2s ease;
+        }
+        @keyframes fadeInPanel {
+            from { opacity:0; transform:translateY(-4px); }
+            to { opacity:1; transform:translateY(0); }
+        }
+
+        /* Tags for opp actions */
+        .opp-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        /* Opp body sections */
+        .opp-section-divider {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            margin: 0.85rem 0;
+        }
+
+        /* Resume score ring in dashboard */
+        .score-ring-sm {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .score-ring-sm .score-ring-label-sm {
+            position: relative; z-index: 1;
+            font-size: 1rem; font-weight: 800; font-family: 'Outfit', sans-serif;
+            color: #f8fafc;
+        }
+
+        /* Insight mini cards */
+        .insight-pill {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 0.65rem 1rem;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .insight-pill strong { color: #f8fafc; }
+
+        /* Category badge */
+        .category-chip {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: rgba(6,182,212,0.1);
+            border: 1px solid rgba(6,182,212,0.2);
+            color: #67e8f9;
+            letter-spacing: 0.2px;
+            text-transform: uppercase;
+        }
+
+        /* Recommended card row */
+        .recommended-row {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+        .recommended-row::-webkit-scrollbar { height: 4px; }
+        .recommended-row::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 2px; }
+
+        .rec-card {
+            min-width: 220px;
+            flex-shrink: 0;
+            padding: 1rem 1.1rem;
+            background: rgba(15,23,42,0.75);
+            border: 1px solid rgba(99,102,241,0.18);
+            border-radius: 14px;
+            backdrop-filter: blur(16px);
+            transition: all 0.2s ease;
+            cursor: default;
+        }
+        .rec-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(99,102,241,0.35);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 20px rgba(99,102,241,0.1);
+        }
+        .rec-card-company { font-weight: 800; font-size: 0.9rem; color: #f8fafc; font-family: 'Outfit', sans-serif; }
+        .rec-card-role { font-size: 0.82rem; color: #a5b4fc; margin-top: 0.2rem; font-weight: 600; }
+        .rec-card-meta { margin-top: 0.6rem; display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+
+        /* Priority labels */
+        .priority-fire { color: #fb923c; font-size: 0.78rem; font-weight: 700; }
+        .priority-warn { color: #fbbf24; font-size: 0.78rem; font-weight: 700; }
+        .priority-low  { color: #64748b; font-size: 0.78rem; font-weight: 700; }
+
+        /* No opps empty state */
+        .empty-state {
+            padding: 3rem 2rem;
+            text-align: center;
+            color: #64748b;
+        }
+        .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.4; display: block; }
+        .empty-state p { font-size: 1rem; }
+        .empty-state strong { color: #94a3b8; }
+
+        /* Animated counter */
+        .counter-num { display: inline-block; }
+    </style>
 </head>
-<body class="bg-gradient flex-col mix-h-screen">
+<body class="bg-gradient flex-col min-h-screen">
     <nav class="navbar glass-nav">
-        <div class="nav-brand"><i class="fa-solid fa-bolt text-gradient"></i> Tracktern</div>
+        <div class="nav-brand"><i class="fa-solid fa-bolt"></i> Tracktern</div>
         <div class="nav-links">
             <a href="/dashboard" class="active"><i class="fa-solid fa-border-all"></i> Dashboard</a>
-            <a href="/upload-resume"><i class="fa-solid fa-file-arrow-up"></i> Upload Resume</a>
+            <a href="/upload-resume"><i class="fa-solid fa-file-arrow-up"></i> Resume</a>
             <a href="/profile"><i class="fa-solid fa-user"></i> Profile</a>
             <button class="btn btn-primary add-opp-nav-btn" onclick="openOppModal()">
                 <i class="fa-solid fa-plus"></i> Add Opportunity
             </button>
-            <span class="user-greeting ml-2">Hi, <%= user.name %>!</span>
-            <form id="logout-form" action="/logout" method="POST" class="logout-form-inline" onsubmit="return confirm('Are you sure you want to logout? You will need to log back in to continue.');">
+            <span class="user-greeting">Hi, <%= user.name.split(' ')[0] %>!</span>
+            <form id="logout-form" action="/logout" method="POST" class="logout-form-inline" onsubmit="return confirm('Log out of Tracktern?');">
                 <button type="submit" class="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
             </form>
         </div>
     </nav>
 
     <div class="dashboard-main-wrapper">
+        <% const analysis = user.resumeAnalysis || {}; %>
+
         <% if(success) { %>
-            <div class="alert alert-success mb-4"><%= success %></div>
+            <div class="alert alert-success mb-4"><i class="fa-solid fa-circle-check"></i> <%= success %></div>
         <% } %>
         <% if(error) { %>
-            <div class="alert alert-error mb-4"><%= error %></div>
+            <div class="alert alert-error mb-4"><i class="fa-solid fa-circle-exclamation"></i> <%= error %></div>
         <% } %>
 
+        <!-- ── Skills Bar ───────────────────────────────────── -->
         <div class="skills-bar glass-card mb-4">
-            <span class="skills-bar-label"><i class="fa-solid fa-laptop-code"></i> Your Skills</span>
+            <span class="skills-bar-label"><i class="fa-solid fa-microchip"></i> Detected Skills</span>
             <div class="skills-list flex flex-wrap gap-2">
                 <% if(user.skills && user.skills.length > 0) { %>
-                    <% user.skills.forEach(skill => { %>
+                    <% user.skills.slice(0, 20).forEach(skill => { %>
                         <span class="badge"><%= skill %></span>
                     <% }) %>
+                    <% if (user.skills.length > 20) { %>
+                        <span class="badge" style="background:rgba(255,255,255,0.05); color:#64748b;">+<%= user.skills.length - 20 %> more</span>
+                    <% } %>
                 <% } else { %>
-                    <span class="text-xs text-muted">No skills loaded. <a href="/upload-resume" class="link">Upload Resume</a> to extract them.</span>
+                    <span class="text-xs text-muted" style="display:flex;align-items:center;gap:0.4rem;">
+                        <i class="fa-solid fa-circle-info"></i> No skills yet.
+                        <a href="/upload-resume" class="link">Upload your resume</a> to auto-extract skills.
+                    </span>
                 <% } %>
             </div>
         </div>
 
-        <div class="insights-panel glass-card mb-4 text-sm mt-2 p-3">
-            <h3 class="mb-2 text-glow" style="margin-bottom:8px;"><i class="fa-solid fa-chart-pie"></i> Your Opportunity Insights</h3>
-            <div class="flex gap-3 flex-wrap">
-                <div class="insight-stat bg-white p-2 rounded border border-slate-200" style="border: 1px solid var(--border-color); border-radius:6px; padding: 6px 10px;">
-                    <strong>Total Opportunities Tracked:</strong> <%= insights.totalOpportunities %>
+        <!-- ── Analytics Dashboard ────────────────────────── -->
+        <div class="analytics-grid mb-5">
+            <div class="analytics-card glass-card">
+                <div class="card-icon"><i class="fa-solid fa-briefcase"></i></div>
+                <div class="card-content">
+                    <p class="analytics-label">Applications</p>
+                    <h3 class="counter-num" data-target="<%= analytics.totalApplications %>">0</h3>
                 </div>
-                <div class="insight-stat bg-white p-2 rounded border border-slate-200" style="border: 1px solid var(--border-color); border-radius:6px; padding: 6px 10px; color: var(--match-high);">
-                    <strong>High Match Opportunities:</strong> <%= insights.highMatchCount %>
+            </div>
+            <div class="analytics-card glass-card">
+                <div class="card-icon"><i class="fa-solid fa-comments"></i></div>
+                <div class="card-content">
+                    <p class="analytics-label">Interviews</p>
+                    <h3 class="counter-num" data-target="<%= analytics.interviewCount %>">0</h3>
                 </div>
-                <div class="insight-stat bg-white p-2 rounded border border-slate-200" style="border: 1px solid var(--border-color); border-radius:6px; padding: 6px 10px; color: var(--match-low);">
-                    <strong>Deadlines This Week:</strong> <%= insights.deadlinesThisWeek %>
+            </div>
+            <div class="analytics-card glass-card">
+                <div class="card-icon"><i class="fa-solid fa-award"></i></div>
+                <div class="card-content">
+                    <p class="analytics-label">Offers</p>
+                    <h3 class="counter-num" data-target="<%= analytics.offerCount %>">0</h3>
+                </div>
+            </div>
+            <div class="analytics-card glass-card">
+                <div class="card-icon"><i class="fa-solid fa-gauge-high"></i></div>
+                <div class="card-content">
+                    <p class="analytics-label">Resume Score</p>
+                    <h3><span class="counter-num" data-target="<%= analytics.resumeScore %>">0</span><small>/100</small></h3>
                 </div>
             </div>
         </div>
 
-        <h2 class="mb-4 text-glow"><i class="fa-solid fa-star"></i> Recommended Opportunities</h2>
-        <div class="upcoming-deadlines mb-5 flex gap-3 text-sm" style="overflow-x:auto; padding-bottom:8px;">
-            <% const recommendedOpps = opportunities.filter(opp => opp.priority === 'Apply Immediately' || opp.matchScore > 70).slice(0,3); %>
-            <% if(recommendedOpps.length === 0) { %>
-                <p class="text-muted text-xs mb-3">No high match recommendations right now. Keep adding opportunities!</p>
-            <% } %>
-            <% recommendedOpps.forEach(opp => { %>
-                <div class="deadline-pill <%= opp.urgencyLabel === 'Critical' ? 'urgent critical-urgent' : opp.urgencyLabel === 'Urgent' ? 'urgent' : '' %> glass-chip p-3">
-                    <i class="fa-regular fa-building"></i> <strong><%= opp.company %></strong> - <%= opp.role %>
-                    <span class="ml-2 block mt-1" style="font-size:0.8rem; margin-top:4px; opacity:0.9;">
-                        <% if(!opp.deadlineMentioned) { %>
-                            — Deadline not mentioned
-                        <% } else if(opp.totalHours >= 0 && opp.totalHours < 24) { %>
-                            — <%= opp.hoursLeft %> hours left
-                        <% } else if(opp.daysLeft >= 0) { %>
-                            — <%= opp.daysLeft %> days left
-                        <% } else { %>
-                            — Ended
-                        <% } %>
-                    </span>
+        <!-- ── Opportunity Intelligence ────────────────────── -->
+        <div class="insights-panel glass-card mb-4">
+            <h3 class="text-glow mb-2" style="font-size:1rem;margin-bottom:10px;display:flex;align-items:center;gap:0.5rem;">
+                <i class="fa-solid fa-satellite-dish" style="background:linear-gradient(135deg,#06b6d4,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;"></i>
+                Opportunity Intelligence
+            </h3>
+            <div class="flex gap-3 flex-wrap mb-3">
+                <div class="insight-pill">
+                    <i class="fa-solid fa-chart-simple" style="color:#6366f1;"></i>
+                    <span>Tracked: <strong><%= insights.totalOpportunities %></strong></span>
                 </div>
+                <div class="insight-pill">
+                    <i class="fa-solid fa-fire" style="color:#10b981;"></i>
+                    <span>High Match: <strong style="color:#6ee7b7;"><%= insights.highMatchCount %></strong></span>
+                </div>
+                <div class="insight-pill">
+                    <i class="fa-solid fa-calendar-xmark" style="color:#f59e0b;"></i>
+                    <span>Deadlines This Week: <strong style="color:#fde68a;"><%= insights.deadlinesThisWeek %></strong></span>
+                </div>
+                <% if (analytics.resumeScore > 0) { %>
+                <div class="insight-pill">
+                    <span class="pulse-dot"></span>
+                    <span>Resume AI Score: <strong><%= analytics.resumeScore %>/100</strong></span>
+                </div>
+                <% } %>
+            </div>
+            <div class="mini-insight-grid">
+                <div>
+                    <strong style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Top Applied Roles</strong>
+                    <p class="text-muted text-xs mt-2" style="line-height:1.6;">
+                        <% if(analytics.mostAppliedRoles && analytics.mostAppliedRoles.length > 0) { %>
+                            <%= analytics.mostAppliedRoles.map(item => `${item.name} (${item.count}×)`).join(' · ') %>
+                        <% } else { %>
+                            No data yet — add opportunities to see role trends.
+                        <% } %>
+                    </p>
+                </div>
+                <div>
+                    <strong style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Detected Resume Skills</strong>
+                    <p class="text-muted text-xs mt-2" style="line-height:1.6;">
+                        <% if(analytics.mostCommonSkills && analytics.mostCommonSkills.length > 0) { %>
+                            <%= analytics.mostCommonSkills.map(item => item.name).join(' · ') %>
+                        <% } else { %>
+                            Upload your resume to populate skill analytics.
+                        <% } %>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── AI Resume Insights ───────────────────────────── -->
+        <div class="resume-insight-dashboard glass-card mb-4">
+            <div class="profile-section-header">
+                <h3 style="font-family:'Outfit',sans-serif;font-size:1rem;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
+                    <i class="fa-solid fa-brain text-gradient"></i> AI Resume Insights
+                </h3>
+                <span class="resume-score-chip">Score: <%= analysis.score || 0 %>/100</span>
+            </div>
+
+            <% if (analysis.score > 0) { %>
+            <div style="margin:0.75rem 0 0.5rem;">
+                <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" style="width:<%= analysis.score || 0 %>%"></div>
+                </div>
+            </div>
+            <% } %>
+
+            <div class="resume-insight-grid mt-3">
+                <div class="resume-insight-card">
+                    <h4><i class="fa-solid fa-thumbs-up"></i> Strengths</h4>
+                    <ul>
+                        <% if(analysis.strengths && analysis.strengths.length > 0) { %>
+                            <% analysis.strengths.forEach(item => { %><li><%= item %></li><% }) %>
+                        <% } else { %>
+                            <li>Upload resume text to generate strengths.</li>
+                        <% } %>
+                    </ul>
+                </div>
+                <div class="resume-insight-card">
+                    <h4><i class="fa-solid fa-triangle-exclamation"></i> Weaknesses</h4>
+                    <ul>
+                        <% if(analysis.weaknesses && analysis.weaknesses.length > 0) { %>
+                            <% analysis.weaknesses.forEach(item => { %><li><%= item %></li><% }) %>
+                        <% } else { %>
+                            <li>No major weaknesses identified.</li>
+                        <% } %>
+                    </ul>
+                </div>
+                <div class="resume-insight-card">
+                    <h4><i class="fa-solid fa-lightbulb"></i> Suggestions</h4>
+                    <ul>
+                        <% if(analysis.suggestions && analysis.suggestions.length > 0) { %>
+                            <% analysis.suggestions.forEach(item => { %><li><%= item %></li><% }) %>
+                        <% } else { %>
+                            <li>Add measurable impact metrics to project bullets.</li>
+                        <% } %>
+                    </ul>
+                </div>
+            </div>
+
+            <% if(analysis.improvedBullets && analysis.improvedBullets.length > 0) { %>
+                <div class="improvement-grid mt-3">
+                    <% analysis.improvedBullets.slice(0, 2).forEach(item => { %>
+                        <div class="improvement-card">
+                            <p class="improvement-label">Original</p>
+                            <p class="improvement-original"><%= item.original %></p>
+                            <p class="improvement-label">AI Improved</p>
+                            <p class="improvement-improved"><%= item.improved %></p>
+                        </div>
+                    <% }) %>
+                </div>
+            <% } %>
+        </div>
+
+        <!-- ── Charts ───────────────────────────────────────── -->
+        <div class="chart-grid mb-4">
+            <div class="glass-card chart-card">
+                <h3><i class="fa-solid fa-chart-pie"></i> Status Distribution</h3>
+                <canvas id="statusChart" aria-label="Application status chart"></canvas>
+            </div>
+        </div>
+
+        <!-- ── AI Recommendations Panel ────────────────── -->
+        <section class="section-container mb-5">
+            <div class="section-heading mb-3">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                AI Match Recommendations
+                <% if(recommendedOpps.length > 0) { %><span class="count-badge"><%= recommendedOpps.length %></span><% } %>
+            </div>
+            <div class="recommended-row">
+                <% if(recommendedOpps.length === 0) { %>
+                    <div class="empty-state-mini glass-card w-full">
+                        <p class="text-sm text-muted">No high-match recommendations found. Upload a resume or add more opportunities to find your perfect match!</p>
+                    </div>
+                <% } %>
+                <% recommendedOpps.forEach(opp => { %>
+                    <div class="rec-card glass-card">
+                        <div class="rec-card-company"><%= opp.company %></div>
+                        <div class="rec-card-role"><%= opp.role %></div>
+                        <div class="rec-card-meta">
+                            <span class="match-badge <%= opp.matchLabel.toLowerCase().replace(' ', '-') %>">
+                                <%= opp.matchScore %>% Match
+                            </span>
+                        </div>
+                        <div class="text-xs text-muted mt-2">
+                             <% if(!opp.deadlineMentioned) { %>
+                                No deadline
+                            <% } else if(opp.urgencyLabel === 'Passed') { %>
+                                <span class="text-danger">Closed</span>
+                            <% } else { %>
+                                <span class="<%= opp.urgencyLabel === 'Critical' ? 'text-danger' : 'text-primary' %>">
+                                    <%= opp.daysLeft >= 0 ? opp.daysLeft + ' days left' : 'Due today' %>
+                                </span>
+                            <% } %>
+                        </div>
+                        <% if(opp.calendarLink) { %>
+                            <a href="<%= opp.calendarLink %>" target="_blank" rel="noopener noreferrer" class="rec-cal-link">
+                                <i class="fa-regular fa-calendar-plus"></i> Add to Calendar
+                            </a>
+                        <% } %>
+                        <a href="<%= opp.application_link %>" target="_blank" class="btn btn-secondary sm-btn w-full mt-3">Apply</a>
+                    </div>
+                <% }) %>
+            </div>
+        </section>
+
+        <!-- ── Status Filter ────────────────────────────────── -->
+        <div class="status-filter-row mb-5">
+            <% statusOptions.forEach(option => { %>
+                <% const isActive = statusFilter === option || (statusFilter === 'All' && option === 'All'); %>
+                <a href="/dashboard<%= option === 'All' ? '' : ('?status=' + encodeURIComponent(option)) %>" class="filter-chip <%= isActive ? 'active' : '' %>">
+                    <% if(option === 'All') { %><i class="fa-solid fa-border-all"></i><% } %>
+                    <% if(option === 'Applied') { %><i class="fa-solid fa-paper-plane"></i><% } %>
+                    <% if(option === 'Interview') { %><i class="fa-solid fa-comments"></i><% } %>
+                    <% if(option === 'Offer') { %><i class="fa-solid fa-trophy"></i><% } %>
+                    <% if(option === 'Rejected') { %><i class="fa-solid fa-circle-xmark"></i><% } %>
+                    <span><%= option %></span>
+                </a>
             <% }) %>
         </div>
 
-        <h2 class="mb-4 text-glow"><i class="fa-solid fa-list-check"></i> All Opportunities</h2>
-        <div class="opportunities-grid">
-            <% if(opportunities.length === 0) { %>
-                <p class="text-muted">No opportunities added yet. Click <strong>Add Opportunity</strong> in the navbar to get started!</p>
-            <% } %>
+        <!-- ── Opportunities Grid ────────────────────────────── -->
+        <section class="section-container">
+            <div class="section-heading mb-4">
+                <i class="fa-solid fa-list-check"></i>
+                Tracked Opportunities
+                <span class="count-badge"><%= opportunities.length %></span>
+            </div>
 
-            <% opportunities.forEach(opp => { %>
-                <div class="glass-card opp-card">
-                    <div class="opp-header">
-                        <div>
-                            <h3 class="opp-company"><%= opp.company %></h3>
-                            <p class="opp-role text-gradient"><%= opp.role %></p>
-                            <p class="mt-1" style="font-size:0.75rem; font-weight:600; margin-top:4px; opacity:0.85;">
-                                <% if(opp.priority === 'Apply Immediately') { %>🔥 Apply Immediately<% } %>
-                                <% if(opp.priority === 'Consider Applying') { %>⚠ Consider Applying<% } %>
-                                <% if(opp.priority === 'Low Priority') { %>❌ Low Priority<% } %>
-                            </p>
-                        </div>
-                        <div style="text-align: right; display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
-                            <span class="match-badge <%= opp.matchLabel.toLowerCase().replace(' ', '-') %>">
-                                <%= opp.matchLabel %> (<%= opp.matchScore %>%)
-                            </span>
-                            <span class="authenticity-badge <%= opp.authenticityClass %>">
-                                Authenticity: <%= opp.authenticityLabel %> (<%= opp.authenticityScore %>%)
-                            </span>
-                            <span style="font-size:0.75rem; font-weight:700;" class="<%= opp.urgencyLabel === 'Critical' ? 'text-danger' : opp.urgencyLabel === 'Urgent' ? 'text-warning' : 'text-muted' %>">
-                                <% if(opp.urgencyLabel === 'Critical') { %>🔥 Critical<% } %>
-                                <% if(opp.urgencyLabel === 'Urgent') { %>⚠ Urgent<% } %>
-                                <% if(opp.urgencyLabel === 'Upcoming') { %>Upcoming Deadline<% } %>
-                                <% if(opp.urgencyLabel === 'Normal') { %>Normal Opportunity<% } %>
-                                <% if(opp.urgencyLabel === 'Passed') { %>Deadline Passed<% } %>
-                                <% if(opp.urgencyLabel === 'No Deadline') { %>Deadline Not Mentioned<% } %>
-                                <% if(opp.deadlineMentioned && opp.totalHours >= 0 && opp.totalHours < 24) { %>
-                                    – <%= opp.hoursLeft %> hours left
-                                <% } else if(opp.deadlineMentioned && opp.daysLeft >= 0) { %>
-                                    – <%= opp.daysLeft %> days left
-                                <% } %>
-                            </span>
-                        </div>
+            <div class="opportunities-grid">
+                <% if(opportunities.length === 0) { %>
+                    <div class="empty-state glass-card">
+                        <i class="fa-solid fa-inbox"></i>
+                        <p>Your pipeline is empty. Click <strong>Add Opportunity</strong> to get started!</p>
                     </div>
+                <% } %>
 
-                    <div class="opp-body mt-3">
-                        <p class="text-sm"><strong>Eligibility:</strong> <%= opp.eligibility %></p>
-                        <p class="text-sm"><strong>Deadline:</strong>
-                            <% if(opp.deadlineMentioned) { %>
-                                <%= new Date(opp.deadline).toLocaleDateString() %> at
-                                <%= new Date(opp.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %>
-                            <% } else { %>
-                                Not mentioned in posting
-                            <% } %>
-                        </p>
-                        <p class="text-sm authenticity-note"><strong>Authenticity Check:</strong> <%= opp.authenticity_reason %></p>
-
-                        <div style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px; margin-top:12px; font-size:0.75rem;">
-                            <strong style="display:block; margin-bottom:6px;">Why this match?</strong>
-                            <ul style="list-style:none; padding:0; margin:0;" class="flex-col gap-1">
-                                <% if(opp.matchedSkills && opp.matchedSkills.length > 0) { %>
-                                    <% opp.matchedSkills.forEach(s => { %>
-                                        <li style="color:var(--match-high); margin-bottom:2px;">✔ <%= s %> found in resume</li>
-                                    <% }) %>
-                                <% } %>
-                                <% if(opp.missingSkills && opp.missingSkills.length > 0) { %>
-                                    <% opp.missingSkills.forEach(s => { %>
-                                        <li style="color:var(--match-low); margin-bottom:2px;">❌ Missing <%= s %></li>
-                                    <% }) %>
-                                <% } %>
-                            </ul>
+                <% opportunities.forEach(opp => { %>
+                    <div class="opp-card glass-card">
+                        <div class="opp-main">
+                            <div class="opp-brand">
+                                <div class="opp-logo"><%= opp.company.charAt(0) %></div>
+                                <div class="opp-info">
+                                    <h3 class="opp-company"><%= opp.company %></h3>
+                                    <p class="opp-role"><%= opp.role %></p>
+                                </div>
+                            </div>
+                            
+                            <div class="opp-badges">
+                                <span class="status-pill status-<%= opp.applicationStatus.toLowerCase() %>"><%= opp.applicationStatus %></span>
+                                <span class="match-badge <%= opp.matchLabel.toLowerCase().replace(' ', '-') %>"><%= opp.matchScore %>% Match</span>
+                            </div>
                         </div>
 
-                        <div class="opp-actions mt-4 flex gap-2">
-                            <a href="<%= opp.application_link %>" target="_blank" class="btn btn-primary sm-btn"><i class="fa-solid fa-arrow-up-right-from-square"></i> Apply Now</a>
+                        <div class="opp-details">
+                            <div class="detail-item">
+                                <i class="fa-solid fa-calendar"></i>
+                                <span>
+                                    <% if(opp.deadlineMentioned) { %>
+                                        Deadline: <%= new Date(opp.deadline).toLocaleDateString('en-IN', {day:'2-digit',month:'short'}) %>
+                                    <% } else { %>
+                                        No Deadline
+                                    <% } %>
+                                </span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fa-solid fa-shield-check"></i>
+                                <span>Authenticity: <%= opp.authenticity_score %>%</span>
+                            </div>
+                        </div>
+
+                        <div class="opp-actions">
+                            <a href="<%= opp.application_link %>" target="_blank" class="btn btn-primary sm-btn">Apply</a>
+                            <button class="btn btn-secondary sm-btn" onclick="toggleMatchDetails(this)">Details</button>
                             <% if(opp.calendarLink) { %>
-                                <a href="<%= opp.calendarLink %>" target="_blank" rel="noopener noreferrer" class="btn btn-secondary sm-btn"><i class="fa-regular fa-calendar-plus"></i> Add to Calendar</a>
+                                <a href="<%= opp.calendarLink %>" target="_blank" rel="noopener noreferrer" class="btn btn-secondary sm-btn">
+                                    <i class="fa-regular fa-calendar-plus"></i> Add to Calendar
+                                </a>
                             <% } %>
-                            <form action="/delete-opportunity/<%= opp._id %>" method="POST" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this opportunity? This action cannot be undone.');">
-                                <button type="submit" class="btn btn-danger sm-btn"><i class="fa-solid fa-trash"></i> Delete</button>
+                            <form action="/delete-opportunity/<%= opp._id %>" method="POST" class="ml-auto">
+                                <button type="submit" class="btn btn-danger sm-btn"><i class="fa-solid fa-trash"></i></button>
                             </form>
                         </div>
+
+                        <!-- Match Details (collapsible) -->
+                        <div class="match-details-panel">
+                            <p class="text-xs text-secondary mb-2">AI Insights:</p>
+                            <ul class="match-stats">
+                                <% if(opp.matchedSkills && opp.matchedSkills.length > 0) { %>
+                                    <% opp.matchedSkills.forEach(s => { %><li class="skill-match">✔ <%= s %></li><% }) %>
+                                <% } %>
+                                <% if(opp.missingSkills && opp.missingSkills.length > 0) { %>
+                                    <% opp.missingSkills.forEach(s => { %><li class="skill-miss">✗ <%= s %></li><% }) %>
+                                <% } %>
+                            </ul>
+                            <p class="text-xs text-muted mt-3"><%= opp.authenticity_reason %></p>
+                        </div>
                     </div>
-                </div>
-            <% }) %>
-        </div>
+                <% }) %>
+            </div>
+        </section>
     </div>
 
-    <!-- ── Add Opportunity Modal ──────────────────────────────── -->
+    <!-- ── Add Opportunity Modal ──────────────────────────── -->
     <div id="add-opp-modal" class="modal-backdrop" aria-hidden="true">
         <div class="modal-card">
             <div class="modal-header">
@@ -177,97 +577,179 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <p class="text-xs text-muted mt-1 mb-3">Paste a recruitment message, add a direct opportunity link, or use both. Tracktern will extract the details automatically.</p>
+            <p class="text-xs text-muted mt-1 mb-3" style="line-height:1.5;">
+                Paste a recruitment message, share a link, or both. Tracktern AI will extract company, role, deadline, and eligibility automatically.
+            </p>
             <form id="parse-opportunity-form" action="/parse-opportunity" method="POST">
                 <div class="form-group">
-                    <label for="source-link">Opportunity Link</label>
+                    <label for="source-link"><i class="fa-solid fa-link"></i> Opportunity Link</label>
                     <input id="source-link" name="source_link" type="text" inputmode="url" placeholder="https://careers.company.com/job/123" class="glass-input w-full">
                 </div>
                 <div class="form-group">
-                    <label for="raw-message-text">Opportunity Message</label>
-                    <textarea id="raw-message-text" name="raw_message_text" rows="8" placeholder="Example: Google is hiring STEP Interns who are in 2nd year... Deadline is May 10, 2026. Apply here: link.xyz" class="glass-input w-full"></textarea>
+                    <label for="raw-message-text"><i class="fa-solid fa-message"></i> Opportunity Message</label>
+                    <textarea id="raw-message-text" name="raw_message_text" rows="7"
+                        placeholder="Paste a LinkedIn post, WhatsApp message, or email excerpt here...&#10;e.g. &#34;Google is hiring STEP Interns... Deadline: May 10, 2026. Apply: link.xyz&#34;"
+                        class="glass-input w-full"></textarea>
                 </div>
                 <button id="parse-opportunity-btn" type="submit" class="btn btn-primary w-full mt-2">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> Parse & Save
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Parse & Save with AI
                 </button>
             </form>
         </div>
     </div>
 
-    <!-- ── Full-Screen Loading Overlay ─────────────────────────── -->
+    <!-- ── Loading Overlay ─────────────────────────────────── -->
     <div id="opp-loading-overlay" class="opp-loading-overlay" aria-hidden="true">
-        <div class="opp-loading-visual" aria-hidden="true">
-            <i class="fa-solid fa-hourglass-half"></i>
+        <div class="opp-loading-visual">
+            <i class="fa-solid fa-brain"></i>
         </div>
-        <h3 class="opp-loading-title">Parsing Opportunity...</h3>
-        <p class="opp-loading-text">Tracktern AI is extracting company, role, deadline, and eligibility from your message or link.</p>
+        <h3 class="opp-loading-title">AI Parsing Opportunity...</h3>
+        <p class="opp-loading-text">
+            Extracting company, role, eligibility, deadline, and authenticity score from your message or link.
+        </p>
     </div>
 
     <script>
-        // ── Modal open / close ─────────────────────────────────────
-        const addOppModal = document.getElementById('add-opp-modal');
+    /* ── Data from server ─────────────────────────────── */
+    const chartSource = <%- JSON.stringify(chartData || {}) %>;
 
-        function openOppModal() {
-            addOppModal.classList.add('is-visible');
-            addOppModal.setAttribute('aria-hidden', 'false');
-            document.body.classList.add('no-scroll');
-            const firstInput = addOppModal.querySelector('input[name="source_link"]');
-            if (firstInput) {
-                firstInput.focus();
-            }
-        }
+    /* ── Chart.js defaults for dark theme ─────────────── */
+    Chart.defaults.color = '#64748b';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+    Chart.defaults.font.family = "'Inter', sans-serif";
 
-        function closeOppModal() {
-            addOppModal.classList.remove('is-visible');
-            addOppModal.setAttribute('aria-hidden', 'true');
-            document.body.classList.remove('no-scroll');
-        }
+    function createChart(elementId, type, labels, values, colors) {
+        const canvas = document.getElementById(elementId);
+        if (!canvas || !Array.isArray(labels) || !Array.isArray(values) || labels.length === 0) return;
 
-        // Close when clicking outside the card
-        addOppModal.addEventListener('click', function (e) {
-            if (e.target === addOppModal) closeOppModal();
-        });
+        const isDoughnut = type === 'doughnut' || type === 'pie';
+        const isLine = type === 'line';
 
-        // Close on Escape
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && addOppModal.classList.contains('is-visible')) closeOppModal();
-        });
-
-        // ── Parse & Save – show full-screen loading overlay ───────
-        (function () {
-            const form = document.getElementById('parse-opportunity-form');
-            const overlay = document.getElementById('opp-loading-overlay');
-            const submitBtn = document.getElementById('parse-opportunity-btn');
-            if (!form) return;
-
-            form.addEventListener('submit', function () {
-                const messageInput = form.querySelector('textarea[name="raw_message_text"]');
-                const linkInput = form.querySelector('input[name="source_link"]');
-                const hasMessage = messageInput && messageInput.value.trim();
-                const hasLink = linkInput && linkInput.value.trim();
-                if (!hasMessage && !hasLink) {
-                    alert('Paste an opportunity message or enter a link first.');
-                    if (linkInput) {
-                        linkInput.focus();
+        new Chart(canvas, {
+            type,
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: isDoughnut ? colors : (isLine ? 'rgba(99,102,241,0.15)' : colors),
+                    borderColor: isDoughnut ? colors.map(c => c) : (isLine ? '#6366f1' : colors),
+                    borderWidth: isDoughnut ? 2 : (isLine ? 2 : 0),
+                    tension: 0.4,
+                    fill: isLine,
+                    borderRadius: type === 'bar' ? 6 : 0,
+                    pointBackgroundColor: '#6366f1',
+                    pointRadius: isLine ? 4 : 0,
+                    pointHoverRadius: isLine ? 6 : 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 900, easing: 'easeInOutQuart' },
+                plugins: {
+                    legend: {
+                        display: isDoughnut,
+                        labels: { color: '#94a3b8', padding: 16, font: { size: 11, weight: '600' }, boxWidth: 12, borderRadius: 3 }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15,23,42,0.95)',
+                        borderColor: 'rgba(99,102,241,0.3)',
+                        borderWidth: 1,
+                        titleColor: '#f8fafc',
+                        bodyColor: '#94a3b8',
+                        padding: 10,
+                        cornerRadius: 8,
                     }
-                    return;
+                },
+                scales: isDoughnut ? {} : {
+                    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font: { size: 11 } } },
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', precision: 0, font: { size: 11 } } }
                 }
+            }
+        });
+    }
 
-                // Close modal first, then reveal full-screen overlay
-                closeOppModal();
+    const brandColors = ['#6366f1','#06b6d4','#10b981','#f59e0b','#ec4899','#8b5cf6','#f97316','#14b8a6'];
 
-                if (overlay) {
-                    overlay.classList.add('is-visible');
-                    overlay.setAttribute('aria-hidden', 'false');
-                }
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Parsing...';
-                }
-                document.body.classList.add('no-scroll');
-            });
-        })();
+    createChart('statusChart',   'doughnut',
+        chartSource.statusDistribution?.labels   || [],
+        chartSource.statusDistribution?.values   || [],
+        ['#6366f1','#f59e0b','#ef4444','#10b981']
+    );
 
+    /* ── Animated counters ─────────────────────────────── */
+    function animateCounter(el) {
+        const target = parseInt(el.dataset.target, 10) || 0;
+        if (target === 0) { el.textContent = '0'; return; }
+        const duration = 1000;
+        const step = Math.ceil(target / (duration / 16));
+        let current = 0;
+        const timer = setInterval(() => {
+            current = Math.min(current + step, target);
+            el.textContent = current;
+            if (current >= target) clearInterval(timer);
+        }, 16);
+    }
+
+    const io = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+            if (e.isIntersecting) { animateCounter(e.target); io.unobserve(e.target); }
+        });
+    }, { threshold: 0.3 });
+
+    document.querySelectorAll('.counter-num[data-target]').forEach(el => io.observe(el));
+
+    /* ── Modal ─────────────────────────────────────────── */
+    const addOppModal = document.getElementById('add-opp-modal');
+
+    function openOppModal() {
+        addOppModal.classList.add('is-visible');
+        addOppModal.setAttribute('aria-hidden','false');
+        document.body.classList.add('no-scroll');
+        const inp = addOppModal.querySelector('input[name="source_link"]');
+        if (inp) inp.focus();
+    }
+
+    function closeOppModal() {
+        addOppModal.classList.remove('is-visible');
+        addOppModal.setAttribute('aria-hidden','true');
+        document.body.classList.remove('no-scroll');
+    }
+
+    addOppModal.addEventListener('click', e => { if (e.target === addOppModal) closeOppModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && addOppModal.classList.contains('is-visible')) closeOppModal(); });
+
+    /* ── Parse & Save loading overlay ─────────────────── */
+    (function () {
+        const form = document.getElementById('parse-opportunity-form');
+        const overlay = document.getElementById('opp-loading-overlay');
+        const submitBtn = document.getElementById('parse-opportunity-btn');
+        if (!form) return;
+
+        form.addEventListener('submit', function () {
+            const msg = form.querySelector('textarea[name="raw_message_text"]');
+            const lnk = form.querySelector('input[name="source_link"]');
+            if (!msg?.value.trim() && !lnk?.value.trim()) {
+                alert('Please paste an opportunity message or enter a link first.');
+                lnk?.focus();
+                return false;
+            }
+            closeOppModal();
+            if (overlay) { overlay.classList.add('is-visible'); overlay.setAttribute('aria-hidden','false'); }
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Parsing...'; }
+            document.body.classList.add('no-scroll');
+        });
+    })();
+
+    /* ── Match details toggle ──────────────────────────── */
+    function toggleMatchDetails(btn) {
+        const card = btn.closest('.opp-card');
+        const panel = card.querySelector('.match-details-panel');
+        if (panel) {
+            panel.classList.toggle('is-visible');
+            btn.textContent = panel.classList.contains('is-visible') ? 'Hide Details' : 'Details';
+        }
+    }
     </script>
 </body>
 </html>

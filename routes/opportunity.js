@@ -6,7 +6,8 @@ const { GoogleGenAI } = require('@google/genai');
 const { normalizeDeadlineTime, extractDeadlineTime } = require('../lib/deadlineTime');
 const { buildGoogleCalendarLink } = require('../lib/googleCalendar');
 
-const ai = new GoogleGenAI({ apiKey: process.env.LLM_API_KEY });
+const LLM_API_KEY = (process.env.LLM_API_KEY || '').trim();
+const ai = LLM_API_KEY ? new GoogleGenAI({ apiKey: LLM_API_KEY }) : null;
 
 const SHORTENER_HOSTS = new Set([
     'bit.ly',
@@ -45,8 +46,136 @@ const SUSPICIOUS_PATTERNS = [
     { pattern: /\bsecurity deposit\b/i, reason: 'Asks for a security deposit' }
 ];
 
-function normalizeString(value) {
-    return typeof value === 'string' ? value.trim() : '';
+const APPLICATION_STATUSES = ['Applied', 'Interview', 'Rejected', 'Offer'];
+const STATUS_SET = new Set(APPLICATION_STATUSES);
+
+const OPPORTUNITY_SKILL_PATTERNS = [
+    ['JavaScript', /\bjavascript|\bjs\b/i],
+    ['TypeScript', /\btypescript\b/i],
+    ['React', /\breact\b/i],
+    ['Node.js', /\bnode\.?js\b/i],
+    ['Express', /\bexpress\b/i],
+    ['MongoDB', /\bmongo(db)?\b/i],
+    ['SQL', /\bsql|mysql|postgres\b/i],
+    ['Python', /\bpython\b/i],
+    ['Java', /\bjava\b/i],
+    ['C++', /\bc\+\+\b/i],
+    ['Machine Learning', /\bmachine learning|\bml\b/i],
+    ['Data Analysis', /\bdata analysis|analytics|pandas\b/i],
+    ['Docker', /\bdocker\b/i],
+    ['Kubernetes', /\bkubernetes|\bk8s\b/i],
+    ['AWS', /\baws|amazon web services\b/i],
+    ['Git', /\bgit\b/i],
+    ['REST APIs', /\brest(ful)? api\b/i],
+    ['GraphQL', /\bgraphql\b/i],
+    ['Figma', /\bfigma\b/i],
+    ['Flutter', /\bflutter\b/i]
+];
+
+function normalizeString(value, maxLen = 6000) {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    return value
+        .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+        .replace(/[<>]/g, ' ')
+        .trim()
+        .slice(0, maxLen);
+}
+
+function normalizeStringArray(values, maxItems = 60, maxLen = 80) {
+    if (!Array.isArray(values)) {
+        return [];
+    }
+
+    const deduped = new Set();
+    for (const value of values) {
+        const cleaned = normalizeString(value, maxLen);
+        if (cleaned) {
+            deduped.add(cleaned);
+        }
+
+        if (deduped.size >= maxItems) {
+            break;
+        }
+    }
+
+    return Array.from(deduped);
+}
+
+function normalizeSkillName(skill) {
+    const normalized = normalizeString(skill, 80);
+    if (!normalized) {
+        return '';
+    }
+
+    const lower = normalized.toLowerCase();
+    const aliases = {
+        js: 'JavaScript',
+        javascript: 'JavaScript',
+        ts: 'TypeScript',
+        typescript: 'TypeScript',
+        nodejs: 'Node.js',
+        'node.js': 'Node.js',
+        reactjs: 'React',
+        mongodb: 'MongoDB',
+        postgres: 'SQL',
+        postgresql: 'SQL',
+        mysql: 'SQL',
+        ml: 'Machine Learning'
+    };
+
+    return aliases[lower] || normalized;
+}
+
+function dedupeSkills(skills, maxItems = 60) {
+    const deduped = new Map();
+    for (const skill of skills || []) {
+        const normalized = normalizeSkillName(skill);
+        if (!normalized) continue;
+
+        const key = normalized.toLowerCase();
+        if (!deduped.has(key)) {
+            deduped.set(key, normalized);
+        }
+        if (deduped.size >= maxItems) {
+            break;
+        }
+    }
+    return Array.from(deduped.values());
+}
+
+function parseAiText(response) {
+    if (!response) {
+        return '';
+    }
+
+    if (typeof response.text === 'string') {
+        return response.text.trim();
+    }
+
+    if (typeof response.text === 'function') {
+        try {
+            const maybeText = response.text();
+            if (typeof maybeText === 'string') {
+                return maybeText.trim();
+            }
+        } catch (err) {
+            // Ignore and fall back to candidates.
+        }
+    }
+
+    const parts = response.candidates?.[0]?.content?.parts;
+    if (!Array.isArray(parts)) {
+        return '';
+    }
+
+    return parts
+        .map(part => normalizeString(part && part.text, 6000))
+        .filter(Boolean)
+        .join('\n')
+        .trim();
 }
 
 function stripCodeFences(text) {
@@ -490,13 +619,261 @@ function evaluateOpportunityAuthenticity({
     };
 }
 
+function normalizeStatus(value) {
+    const normalized = normalizeString(value, 40).toLowerCase();
+    if (!normalized) {
+        return '';
+    }
+
+    const map = {
+        applied: 'Applied',
+        interview: 'Interview',
+        rejected: 'Rejected',
+        offer: 'Offer'
+    };
+
+    return map[normalized] || '';
+}
+
+function getOpportunityScopeQuery(userId) {
+    return {
+        $or: [
+            { owner: userId },
+            { owner: { $exists: false } }
+        ]
+    };
+}
+
+function inferSkillsFromText(text) {
+    const source = normalizeString(text, 12000);
+    if (!source) {
+        return [];
+    }
+
+    const skills = [];
+    for (const [skill, pattern] of OPPORTUNITY_SKILL_PATTERNS) {
+        if (pattern.test(source)) {
+            skills.push(skill);
+        }
+    }
+
+    return dedupeSkills(skills);
+}
+
+function inferOpportunityCategory(role, requiredSkills, eligibility) {
+    const combinedText = `${normalizeString(role, 240)} ${normalizeString(eligibility, 240)} ${normalizeString((requiredSkills || []).join(' '), 240)}`.toLowerCase();
+
+    if (/frontend|react|vue|angular|ui\b|css|html/.test(combinedText)) return 'Frontend';
+    if (/backend|node|express|spring|api|microservice/.test(combinedText)) return 'Backend';
+    if (/full\s*stack|mern/.test(combinedText)) return 'Full Stack';
+    if (/data|analytics|machine learning|ml|ai|nlp|python/.test(combinedText)) return 'Data/AI';
+    if (/cloud|devops|docker|kubernetes|aws|azure|gcp/.test(combinedText)) return 'DevOps/Cloud';
+    if (/mobile|android|ios|flutter|react native/.test(combinedText)) return 'Mobile';
+    if (/design|ux|ui\/ux|figma/.test(combinedText)) return 'Design';
+
+    return 'General';
+}
+
+function normalizeStatusHistory(statusHistory, fallbackStatus, createdAt) {
+    const rows = Array.isArray(statusHistory)
+        ? statusHistory
+            .map(item => ({
+                status: normalizeStatus(item && item.status),
+                changedAt: item && item.changedAt ? new Date(item.changedAt) : null,
+                note: normalizeString(item && item.note, 220)
+            }))
+            .filter(item => item.status && item.changedAt && !Number.isNaN(item.changedAt.getTime()))
+        : [];
+
+    if (rows.length === 0) {
+        const defaultChangedAt = createdAt ? new Date(createdAt) : new Date();
+        rows.push({
+            status: fallbackStatus || 'Applied',
+            changedAt: Number.isNaN(defaultChangedAt.getTime()) ? new Date() : defaultChangedAt,
+            note: 'Initial status'
+        });
+    }
+
+    return rows.sort((a, b) => b.changedAt.getTime() - a.changedAt.getTime());
+}
+
+function getDeadlineMeta(deadlineValue, deadlineMentioned, now) {
+    const parsedDeadline = new Date(deadlineValue);
+    const hasValidDeadline = Boolean(deadlineMentioned) && !Number.isNaN(parsedDeadline.getTime());
+
+    if (!hasValidDeadline) {
+        return {
+            parsedDeadline,
+            hasValidDeadline: false,
+            daysLeft: null,
+            hoursLeft: null,
+            totalHours: null,
+            urgencyLabel: 'No Deadline'
+        };
+    }
+
+    const timeDiff = parsedDeadline.getTime() - now.getTime();
+    const totalHours = Math.floor(timeDiff / (1000 * 3600));
+    const daysLeft = Math.floor(timeDiff / (1000 * 3600 * 24));
+    const hoursLeft = totalHours % 24;
+
+    let urgencyLabel = 'Normal';
+    if (timeDiff <= 0) urgencyLabel = 'Passed';
+    else if (totalHours < 12) urgencyLabel = 'Critical';
+    else if (totalHours < 72) urgencyLabel = 'Urgent';
+    else if (daysLeft <= 7) urgencyLabel = 'Upcoming';
+
+    return {
+        parsedDeadline,
+        hasValidDeadline,
+        daysLeft,
+        hoursLeft,
+        totalHours,
+        urgencyLabel
+    };
+}
+
+function computeMatchDetails(userSkills, oppSkills, role, eligibility) {
+    const normalizedUserSkills = dedupeSkills(userSkills || []).map(skill => skill.toLowerCase());
+    const normalizedOppSkills = dedupeSkills(oppSkills || []);
+    const matchedSkills = [];
+    const missingSkills = [];
+
+    if (normalizedOppSkills.length > 0) {
+        for (const skill of normalizedOppSkills) {
+            const lowerSkill = skill.toLowerCase();
+            const hasSkill = normalizedUserSkills.some(userSkill => userSkill.includes(lowerSkill) || lowerSkill.includes(userSkill));
+
+            if (hasSkill) matchedSkills.push(skill);
+            else missingSkills.push(skill);
+        }
+    }
+
+    const skillScore = normalizedOppSkills.length > 0
+        ? (matchedSkills.length / normalizedOppSkills.length) * 100
+        : 0;
+
+    const roleText = `${normalizeString(role, 160)} ${normalizeString(eligibility, 160)}`.toLowerCase();
+    const roleKeywordMatches = normalizedUserSkills.filter(skill => roleText.includes(skill)).length;
+    const roleBonus = Math.min(roleKeywordMatches * 8, 24);
+    const score = clampNumber(Math.round(skillScore + roleBonus), 0, 100);
+
+    let matchLabel = 'Low Match';
+    if (score >= 75) matchLabel = 'High Match';
+    else if (score >= 45) matchLabel = 'Medium Match';
+
+    const recommendedImprovements = missingSkills.slice(0, 3).map(skill => `Add a project bullet showing impact with ${skill}.`);
+
+    return {
+        score,
+        matchLabel,
+        matchedSkills,
+        missingSkills: missingSkills.length > 0 ? missingSkills : ['Your profile already covers the core listed skills.'],
+        recommendedImprovements: recommendedImprovements.length > 0
+            ? recommendedImprovements
+            : ['Quantify outcomes in your resume to increase recruiter confidence.']
+    };
+}
+
+function buildMonthlyApplicationsSeries(opportunities, monthsBack = 6) {
+    const monthKeys = [];
+    const counts = {};
+    const cursor = new Date();
+
+    cursor.setDate(1);
+    cursor.setHours(0, 0, 0, 0);
+    cursor.setMonth(cursor.getMonth() - (monthsBack - 1));
+
+    for (let i = 0; i < monthsBack; i += 1) {
+        const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+        monthKeys.push(key);
+        counts[key] = 0;
+        cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    for (const opp of opportunities) {
+        const createdAt = new Date(opp.createdAt);
+        if (Number.isNaN(createdAt.getTime())) continue;
+
+        const key = `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, '0')}`;
+        if (Object.prototype.hasOwnProperty.call(counts, key)) {
+            counts[key] += 1;
+        }
+    }
+
+    return {
+        labels: monthKeys.map(key => {
+            const [year, month] = key.split('-').map(Number);
+            return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'short' });
+        }),
+        values: monthKeys.map(key => counts[key])
+    };
+}
+
+function countTopValues(values, limit = 6) {
+    const map = new Map();
+    for (const value of values) {
+        const key = normalizeString(value, 120);
+        if (!key) continue;
+        map.set(key, (map.get(key) || 0) + 1);
+    }
+
+    return Array.from(map.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([name, count]) => ({ name, count }));
+}
+
 // Dashboard
 router.get('/dashboard', async (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
 
     try {
-        const user = await User.findById(req.session.userId);
-        if (!user) return res.redirect('/login');
+        const userLookup = User.findById(req.session.userId);
+        const userPromise = userLookup && typeof userLookup.lean === 'function'
+            ? userLookup.lean()
+            : userLookup;
+
+        const [userDoc, opportunityDocs] = await Promise.all([
+            userPromise,
+            Opportunity.find(getOpportunityScopeQuery(req.session.userId)).sort({ deadline: 1 })
+        ]);
+
+        if (!userDoc) return res.redirect('/login');
+
+        const resumeAnalysis = userDoc.resumeAnalysis && typeof userDoc.resumeAnalysis === 'object'
+            ? userDoc.resumeAnalysis
+            : {};
+
+        const user = {
+            ...userDoc,
+            skills: dedupeSkills(userDoc.skills || []),
+            resumeAnalysis: {
+                score: clampNumber(Number(resumeAnalysis.score) || 0, 0, 100),
+                strengths: normalizeStringArray(resumeAnalysis.strengths, 8, 220),
+                weaknesses: normalizeStringArray(resumeAnalysis.weaknesses, 8, 220),
+                suggestions: normalizeStringArray(resumeAnalysis.suggestions, 8, 240),
+                detectedSkills: dedupeSkills(resumeAnalysis.detectedSkills || []),
+                missingSkills: dedupeSkills(resumeAnalysis.missingSkills || []),
+                improvedBullets: Array.isArray(resumeAnalysis.improvedBullets)
+                    ? resumeAnalysis.improvedBullets
+                        .map(item => ({
+                            original: normalizeString(item && item.original, 320),
+                            improved: normalizeString(item && item.improved, 320)
+                        }))
+                        .filter(item => item.original && item.improved)
+                        .slice(0, 6)
+                    : [],
+                analyzedAt: resumeAnalysis.analyzedAt || null
+            }
+        };
+
+        const userSkillsForMatching = dedupeSkills([
+            ...(user.skills || []),
+            ...(user.resumeAnalysis.detectedSkills || [])
+        ]);
+
+        const statusFilter = normalizeStatus(req.query.status) || 'All';
 
         const errorMessages = {
             empty_message: 'Please paste an opportunity message or add a link first.',
@@ -504,32 +881,31 @@ router.get('/dashboard', async (req, res) => {
             parse_failed: 'Could not parse that message. Please try again with more details.',
             invalid_opp_id: 'Invalid opportunity selected for deletion.',
             delete_failed: 'Could not delete that opportunity. Please try again.',
-            opp_exists: 'This opportunity is already in your dashboard.'
+            opp_exists: 'This opportunity is already in your dashboard.',
+            invalid_status: 'Invalid status selected. Please use Applied, Interview, Rejected, or Offer.',
+            status_update_failed: 'Could not update opportunity status. Please try again.'
         };
         const successMessages = {
             opp_added: 'Opportunity added successfully!',
-            opp_deleted: 'Opportunity deleted successfully!'
+            opp_deleted: 'Opportunity deleted successfully!',
+            status_updated: 'Opportunity status updated successfully!'
         };
 
         const error = errorMessages[req.query.error] || null;
         const success = successMessages[req.query.success] || null;
-        const opportunities = await Opportunity.find().sort({ deadline: 1 });
 
-        let totalOpportunities = opportunities.length;
+        let totalOpportunities = opportunityDocs.length;
         let highMatchCount = 0;
         let deadlinesThisWeek = 0;
+        const now = new Date();
 
-        // Calculate match scores
-        const displayOpps = opportunities.map(opp => {
-            let score = 0;
-            let matchLabel = 'Low Match';
-            const userSkills = user.skills.map(s => s.toLowerCase());
+        const displayOpps = opportunityDocs.map(oppDoc => {
+            const opp = typeof oppDoc.toObject === 'function' ? oppDoc.toObject() : oppDoc;
             const authenticityScore = clampNumber(Number(opp.authenticity_score) || 0, 0, 100);
             const deadlineMentioned = typeof opp.deadline_mentioned === 'boolean'
                 ? opp.deadline_mentioned
                 : hasDeadlineSignal(opp.raw_message);
-            const parsedDeadline = new Date(opp.deadline);
-            const hasValidDeadline = deadlineMentioned && !Number.isNaN(parsedDeadline.getTime());
+            const deadlineMeta = getDeadlineMeta(opp.deadline, deadlineMentioned, now);
 
             let authenticityLabel = 'Needs Verification';
             let authenticityClass = 'auth-medium';
@@ -541,95 +917,146 @@ router.get('/dashboard', async (req, res) => {
                 authenticityClass = 'auth-low';
             }
 
-            const oppSkills = (opp.required_skills && opp.required_skills.length > 0)
+            const oppSkills = dedupeSkills((opp.required_skills && opp.required_skills.length > 0)
                 ? opp.required_skills
-                : [];
+                : inferSkillsFromText(`${opp.role} ${opp.eligibility} ${opp.raw_message}`));
 
-            let matchedSkills = [];
-            let missingSkills = [];
+            const match = computeMatchDetails(userSkillsForMatching, oppSkills, opp.role, opp.eligibility);
 
-            if (oppSkills.length > 0) {
-                oppSkills.forEach(skill => {
-                    const skillLower = skill.toLowerCase();
-                    const hasSkill = userSkills.some(us => us.includes(skillLower) || skillLower.includes(us));
-                    if (hasSkill) matchedSkills.push(skill);
-                    else missingSkills.push(skill);
-                });
-            } else {
-                const oppWords = Array.from(new Set(`${opp.eligibility} ${opp.role}`.toLowerCase().split(/\W+/)));
-                for (const skill of userSkills) {
-                    if (oppWords.includes(skill)) matchedSkills.push(skill);
-                }
-                missingSkills = ['Cannot determine required skills from text'];
+            if (match.score >= 75) {
+                highMatchCount += 1;
             }
 
-            if (oppSkills.length > 0) {
-                score = Math.floor((matchedSkills.length / oppSkills.length) * 100);
-            } else if (userSkills.length > 0) {
-                score = Math.floor(Math.min((matchedSkills.length / (matchedSkills.length + 2)) * 100, 100));
-            }
-
-            if (score > 70) { matchLabel = 'High Match'; highMatchCount++; }
-            else if (score > 40) matchLabel = 'Medium Match';
-            else matchLabel = 'Low Match';
-
-            const today = new Date();
-            let timeDiff = null;
-            let daysLeft = null;
-            let totalHours = null;
-            let hoursLeft = null;
-
-            if (hasValidDeadline) {
-                timeDiff = parsedDeadline.getTime() - today.getTime();
-                daysLeft = Math.floor(timeDiff / (1000 * 3600 * 24));
-                totalHours = Math.floor(timeDiff / (1000 * 3600));
-                hoursLeft = totalHours % 24;
-            }
-
-            if (hasValidDeadline && timeDiff > 0 && daysLeft <= 7) deadlinesThisWeek++;
-
-            let urgencyLabel = 'No Deadline';
-            if (hasValidDeadline) {
-                urgencyLabel = 'Normal';
-                if (timeDiff <= 0) urgencyLabel = 'Passed';
-                else if (totalHours < 12) urgencyLabel = 'Critical';
-                else if (totalHours < 72) urgencyLabel = 'Urgent';
-                else if (daysLeft <= 7) urgencyLabel = 'Upcoming';
+            if (deadlineMeta.hasValidDeadline && deadlineMeta.totalHours > 0 && deadlineMeta.daysLeft <= 7) {
+                deadlinesThisWeek += 1;
             }
 
             let priority = 'Low Priority';
-            if (score > 70 && hasValidDeadline && daysLeft >= 0 && daysLeft <= 7) priority = 'Apply Immediately';
-            else if (score >= 40) priority = 'Consider Applying';
+            if (match.score >= 75 && deadlineMeta.hasValidDeadline && deadlineMeta.daysLeft >= 0 && deadlineMeta.daysLeft <= 7) {
+                priority = 'Apply Immediately';
+            } else if (match.score >= 45) {
+                priority = 'Consider Applying';
+            }
+
+            const applicationStatus = normalizeStatus(opp.application_status) || 'Applied';
+            const statusHistory = normalizeStatusHistory(opp.status_history, applicationStatus, opp.createdAt);
+            const category = normalizeString(opp.category, 80) || inferOpportunityCategory(opp.role, oppSkills, opp.eligibility);
 
             return {
-                ...opp.toObject(),
-                matchScore: score,
-                matchLabel,
+                ...opp,
+                required_skills: oppSkills,
+                matchScore: match.score,
+                matchLabel: match.matchLabel,
                 authenticityScore,
                 authenticityLabel,
                 authenticityClass,
-                deadlineMentioned: hasValidDeadline,
-                matchedSkills,
-                missingSkills,
-                daysLeft,
-                hoursLeft,
-                totalHours,
-                urgencyLabel,
+                deadlineMentioned: deadlineMeta.hasValidDeadline,
+                matchedSkills: match.matchedSkills,
+                missingSkills: match.missingSkills,
+                recommendedImprovements: match.recommendedImprovements,
+                daysLeft: deadlineMeta.daysLeft,
+                hoursLeft: deadlineMeta.hoursLeft,
+                totalHours: deadlineMeta.totalHours,
+                urgencyLabel: deadlineMeta.urgencyLabel,
                 priority,
-                calendarLink: hasValidDeadline ? buildGoogleCalendarLink({
-                    company: opp.company,
-                    role: opp.role,
-                    deadline: parsedDeadline,
-                    application_link: opp.application_link
+                applicationStatus,
+                statusHistory,
+                category,
+                calendarLink: deadlineMeta.hasValidDeadline ? buildGoogleCalendarLink({
+                    company:            opp.company,
+                    role:               opp.role,
+                    deadline:           deadlineMeta.parsedDeadline,
+                    application_link:   opp.application_link,
+                    eligibility:        opp.eligibility,
+                    category:           category,
+                    required_skills:    oppSkills,
+                    authenticity_score: authenticityScore
                 }) : ''
             };
         });
 
-        const insights = { totalOpportunities, highMatchCount, deadlinesThisWeek };
+        const filteredOpportunities = statusFilter === 'All'
+            ? displayOpps
+            : displayOpps.filter(opp => opp.applicationStatus === statusFilter);
 
-        res.render('dashboard', { user, opportunities: displayOpps, insights, error, success });
+        const statusCounts = {
+            Applied: 0,
+            Interview: 0,
+            Rejected: 0,
+            Offer: 0
+        };
+        for (const opp of displayOpps) {
+            statusCounts[opp.applicationStatus] = (statusCounts[opp.applicationStatus] || 0) + 1;
+        }
+
+        const totalApplications = displayOpps.length;
+        const interviewCount = statusCounts.Interview || 0;
+        const offerCount = statusCounts.Offer || 0;
+        const successRate = totalApplications > 0 ? Math.round((offerCount / totalApplications) * 100) : 0;
+        const interviewConversionRate = interviewCount > 0 ? Math.round((offerCount / interviewCount) * 100) : 0;
+
+        const mostAppliedRoles = countTopValues(displayOpps.map(opp => opp.role), 4);
+        const mostCommonSkills = countTopValues([
+            ...(user.skills || []),
+            ...(user.resumeAnalysis.detectedSkills || [])
+        ], 8);
+        const categoryCounts = countTopValues(displayOpps.map(opp => opp.category), 6);
+        const skillDistribution = countTopValues(displayOpps.flatMap(opp => opp.required_skills || []), 8);
+        const monthlySeries = buildMonthlyApplicationsSeries(displayOpps, 6);
+
+        const recommendedOpps = displayOpps
+            .filter(opp => opp.priority === 'Apply Immediately' || opp.matchScore >= 55)
+            .sort((a, b) => {
+                if (b.matchScore !== a.matchScore) {
+                    return b.matchScore - a.matchScore;
+                }
+                return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+            })
+            .slice(0, 3);
+
+        const analytics = {
+            totalApplications,
+            interviewCount,
+            offerCount,
+            resumeScore: user.resumeAnalysis.score || 0,
+            detectedSkillsCount: (user.skills || []).length,
+            successRate,
+            interviewConversionRate,
+            mostAppliedRoles,
+            mostCommonSkills
+        };
+
+        const insights = { totalOpportunities, highMatchCount, deadlinesThisWeek };
+        const chartData = {
+            statusDistribution: {
+                labels: APPLICATION_STATUSES,
+                values: APPLICATION_STATUSES.map(status => statusCounts[status] || 0)
+            },
+            monthlyApplications: monthlySeries,
+            categoryDistribution: {
+                labels: categoryCounts.map(item => item.name),
+                values: categoryCounts.map(item => item.count)
+            },
+            skillDistribution: {
+                labels: skillDistribution.map(item => item.name),
+                values: skillDistribution.map(item => item.count)
+            }
+        };
+
+        res.render('dashboard', {
+            user,
+            opportunities: filteredOpportunities,
+            recommendedOpps,
+            insights,
+            analytics,
+            chartData,
+            statusFilter,
+            statusOptions: ['All', ...APPLICATION_STATUSES],
+            error,
+            success
+        });
     } catch (err) {
-        console.error(err);
+        console.error('Dashboard route error:', err);
         res.status(500).send("Server Error");
     }
 });
@@ -638,13 +1065,14 @@ router.get('/dashboard', async (req, res) => {
 router.post('/parse-opportunity', async (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
 
-    const rawMessageText = normalizeString(req.body.raw_message_text);
-    const sourceLink = normalizeUrlInput(req.body.source_link);
+    const rawMessageText = normalizeString(req.body && req.body.raw_message_text, 5000);
+    const sourceLinkInput = normalizeString(req.body && req.body.source_link, 700);
+    const sourceLink = normalizeUrlInput(sourceLinkInput);
 
-    if (!rawMessageText && !normalizeString(req.body.source_link)) {
+    if (!rawMessageText && !sourceLinkInput) {
         return res.redirect('/dashboard?error=empty_message');
     }
-    if (!rawMessageText && normalizeString(req.body.source_link) && !sourceLink) {
+    if (!rawMessageText && sourceLinkInput && !sourceLink) {
         return res.redirect('/dashboard?error=invalid_link');
     }
 
@@ -658,7 +1086,7 @@ router.post('/parse-opportunity', async (req, res) => {
             }
         }
 
-        const sourceText = buildSourceText(rawMessageText, sourceLink, linkContext);
+            const sourceText = buildSourceText(rawMessageText, sourceLink, linkContext).slice(0, 14000);
         const prompt = `Extract the following information from the opportunity content and return ONLY a valid JSON object with exactly these keys:
 {
 "company": "Company Name",
@@ -679,34 +1107,38 @@ Rules:
 Content: ${sourceText}`;
         let extract = {};
 
-        try {
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: {
-                    responseMimeType: 'application/json',
-                }
-            });
+        if (ai) {
+            try {
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: prompt,
+                    config: {
+                        responseMimeType: 'application/json',
+                    }
+                });
 
-            const rawText = stripCodeFences(response.text || '');
-            if (rawText) {
-                try {
-                    extract = JSON.parse(rawText);
-                } catch (jsonErr) {
-                    console.warn('Invalid JSON from LLM while parsing opportunity:', rawText);
+                const rawText = stripCodeFences(parseAiText(response));
+                if (rawText) {
+                    try {
+                        extract = JSON.parse(rawText);
+                    } catch (jsonErr) {
+                        console.warn('Invalid JSON from LLM while parsing opportunity:', rawText);
+                    }
+                } else {
+                    console.warn('Empty LLM response while parsing opportunity. Falling back to text extraction.');
                 }
-            } else {
-                console.warn('Empty LLM response while parsing opportunity. Falling back to text extraction.');
+            } catch (aiErr) {
+                console.warn('LLM opportunity parse failed. Falling back to text extraction:', aiErr.message);
             }
-        } catch (aiErr) {
-            console.warn('LLM opportunity parse failed. Falling back to text extraction:', aiErr.message);
         }
 
-        const applicationLink = normalizeString(extract.application_link) || sourceLink || extractFirstUrl(sourceText) || 'about:blank';
-        const company = normalizeString(extract.company) || extractCompanyFromText(sourceText, applicationLink) || 'Unknown Company';
-        const role = normalizeString(extract.role) || extractRoleFromText(sourceText) || 'Opportunity';
-        const eligibility = normalizeString(extract.eligibility) || 'Not specified in message';
-        const requiredUtils = Array.isArray(extract.required_skills) ? extract.required_skills : [];
+        const applicationLink = normalizeUrlInput(extract.application_link) || sourceLink || normalizeUrlInput(extractFirstUrl(sourceText)) || 'about:blank';
+        const company = normalizeString(extract.company, 180) || extractCompanyFromText(sourceText, applicationLink) || 'Unknown Company';
+        const role = normalizeString(extract.role, 180) || extractRoleFromText(sourceText) || 'Opportunity';
+        const eligibility = normalizeString(extract.eligibility, 1200) || 'Not specified in message';
+        const requiredSkills = dedupeSkills(Array.isArray(extract.required_skills) ? extract.required_skills : inferSkillsFromText(`${role} ${eligibility} ${sourceText}`));
+        const category = inferOpportunityCategory(role, requiredSkills, eligibility);
+
         const authenticityCheck = evaluateOpportunityAuthenticity({
             rawMessageText,
             sourceText,
@@ -714,12 +1146,12 @@ Content: ${sourceText}`;
             company,
             role,
             eligibility,
-            requiredSkills: requiredUtils,
+            requiredSkills,
             applicationLink
         });
 
-        let targetDate = normalizeString(extract.deadline_date);
-        let targetTime = normalizeDeadlineTime(extract.deadline_time) || extractDeadlineTime(sourceText);
+        let targetDate = normalizeString(extract.deadline_date, 20);
+        let targetTime = normalizeDeadlineTime(normalizeString(extract.deadline_time, 20)) || extractDeadlineTime(sourceText);
         const sourceHasDeadline = hasDeadlineSignal(sourceText);
 
         let deadline = buildFallbackDeadline();
@@ -755,25 +1187,31 @@ Content: ${sourceText}`;
         const existingOpp = await Opportunity.findOne({
             company,
             role,
-            application_link: applicationLink
-        });
+            application_link: applicationLink,
+            ...getOpportunityScopeQuery(req.session.userId)
+        }).select('_id');
 
         if (existingOpp) {
             return res.redirect('/dashboard?error=opp_exists');
         }
 
         const newOpp = new Opportunity({
+            owner: req.session.userId,
             company,
             role,
-            required_skills: requiredUtils,
+            required_skills: requiredSkills,
             eligibility,
             deadline,
             deadline_mentioned: deadlineMentioned,
             application_link: applicationLink,
             raw_message: rawMessageText || `Source link: ${sourceLink}`,
             authenticity_score: authenticityCheck.score,
-            authenticity_reason: authenticityCheck.reason
+            authenticity_reason: authenticityCheck.reason,
+            category,
+            application_status: 'Applied',
+            status_history: [{ status: 'Applied', changedAt: new Date(), note: 'Opportunity added' }]
         });
+
         await newOpp.save();
         res.redirect('/dashboard?success=opp_added');
     } catch (err) {
@@ -782,24 +1220,84 @@ Content: ${sourceText}`;
     }
 });
 
+router.post('/update-opportunity-status/:id', async (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+
+    const { id } = req.params;
+    const requestedStatus = normalizeStatus(req.body && req.body.application_status);
+    const rawFilter = normalizeString(req.body && req.body.return_status_filter, 20);
+    const returnFilter = rawFilter === 'All' ? 'All' : normalizeStatus(rawFilter);
+    const filterSuffix = returnFilter ? `&status=${encodeURIComponent(returnFilter)}` : '';
+
+    if (!id || !/^[a-fA-F0-9]{24}$/.test(id)) {
+        return res.redirect(`/dashboard?error=invalid_opp_id${filterSuffix}`);
+    }
+    if (!requestedStatus || !STATUS_SET.has(requestedStatus)) {
+        return res.redirect(`/dashboard?error=invalid_status${filterSuffix}`);
+    }
+
+    try {
+        const opportunity = await Opportunity.findOne({
+            _id: id,
+            ...getOpportunityScopeQuery(req.session.userId)
+        });
+
+        if (!opportunity) {
+            return res.redirect(`/dashboard?error=status_update_failed${filterSuffix}`);
+        }
+
+        const currentStatus = normalizeStatus(opportunity.application_status) || 'Applied';
+        if (currentStatus !== requestedStatus) {
+            const statusNote = normalizeString(req.body && req.body.status_note, 220) || `Updated from ${currentStatus} to ${requestedStatus}`;
+
+            opportunity.application_status = requestedStatus;
+            opportunity.status_history = Array.isArray(opportunity.status_history) ? opportunity.status_history : [];
+            opportunity.status_history.push({
+                status: requestedStatus,
+                changedAt: new Date(),
+                note: statusNote
+            });
+
+            if (opportunity.status_history.length > 30) {
+                opportunity.status_history = opportunity.status_history.slice(-30);
+            }
+
+            await opportunity.save();
+        }
+
+        return res.redirect(`/dashboard?success=status_updated${filterSuffix}`);
+    } catch (err) {
+        console.error('Opportunity status update error:', err);
+        return res.redirect(`/dashboard?error=status_update_failed${filterSuffix}`);
+    }
+});
+
 router.post('/delete-opportunity/:id', async (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
 
     const { id } = req.params;
+    const rawFilter = normalizeString(req.body && req.body.return_status_filter, 20);
+    const returnFilter = rawFilter === 'All' ? 'All' : normalizeStatus(rawFilter);
+    const filterSuffix = returnFilter ? `&status=${encodeURIComponent(returnFilter)}` : '';
+
     if (!id || !/^[a-fA-F0-9]{24}$/.test(id)) {
-        return res.redirect('/dashboard?error=invalid_opp_id');
+        return res.redirect(`/dashboard?error=invalid_opp_id${filterSuffix}`);
     }
 
     try {
-        const deletedOpp = await Opportunity.findByIdAndDelete(id);
+        const deletedOpp = await Opportunity.findOneAndDelete({
+            _id: id,
+            ...getOpportunityScopeQuery(req.session.userId)
+        });
+
         if (!deletedOpp) {
-            return res.redirect('/dashboard?error=delete_failed');
+            return res.redirect(`/dashboard?error=delete_failed${filterSuffix}`);
         }
 
-        return res.redirect('/dashboard?success=opp_deleted');
+        return res.redirect(`/dashboard?success=opp_deleted${filterSuffix}`);
     } catch (err) {
         console.error('Opportunity delete error:', err);
-        return res.redirect('/dashboard?error=delete_failed');
+        return res.redirect(`/dashboard?error=delete_failed${filterSuffix}`);
     }
 });
 

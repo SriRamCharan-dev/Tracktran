@@ -3,49 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - Tracktern</title>
+    <meta name="description" content="Create your Tracktern account – AI-powered internship intelligence platform">
+    <title>Register – Tracktern</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .auth-bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+        .auth-body-wrap {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            padding: 2rem; position: relative; z-index: 1;
+        }
+        .auth-card {
+            width: 100%; max-width: 480px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px; padding: 2.5rem 2.25rem;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.1);
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            position: relative; overflow: hidden;
+        }
+        .auth-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, #6366f1, #8b5cf6, #06b6d4, transparent);
+        }
+        .auth-logo { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+        .auth-logo-icon {
+            width: 42px; height: 42px; border-radius: 11px;
+            background: linear-gradient(135deg, #6366f1, #06b6d4);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.15rem; color: white; box-shadow: 0 6px 18px rgba(99,102,241,0.4);
+        }
+        .auth-logo-text {
+            font-family: 'Outfit', sans-serif; font-size: 1.45rem; font-weight: 800;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .auth-title { font-family: 'Outfit', sans-serif; font-size: 1.7rem; font-weight: 800; color: #f8fafc; margin-bottom: 0.35rem; }
+        .auth-subtitle { color: #64748b; font-size: 0.88rem; margin-bottom: 1.75rem; line-height: 1.45; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .auth-input-group { margin-bottom: 1.1rem; }
+        .auth-input-group label {
+            display: flex; align-items: center; gap: 0.35rem;
+            font-size: 0.78rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.45rem;
+        }
+        .auth-input-group input {
+            width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+            color: #e2e8f0; padding: 0.78rem 1rem; border-radius: 10px; font-size: 0.92rem; transition: all 0.2s ease;
+        }
+        .auth-input-group input:focus {
+            border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+            background: rgba(99,102,241,0.05); outline: none;
+        }
+        .auth-submit-btn {
+            width: 100%; padding: 0.9rem; border: none; border-radius: 10px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white;
+            font-size: 1rem; font-weight: 700; font-family: 'Outfit', sans-serif; cursor: pointer;
+            transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            box-shadow: 0 6px 20px rgba(99,102,241,0.4); margin-top: 1.25rem; overflow: hidden; position: relative;
+        }
+        .auth-submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(99,102,241,0.5); }
+        .auth-alert-error {
+            padding: 0.8rem 1rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
+            border-radius: 10px; color: #fca5a5; font-size: 0.86rem; font-weight: 500;
+            display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.25rem;
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+        .auth-divider { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 1.5rem 0 1.25rem; }
+        .auth-footer-text { text-align: center; color: #64748b; font-size: 0.86rem; }
+        .auth-footer-text a { color: #6366f1; font-weight: 600; text-decoration: none; transition: color 0.2s; }
+        .auth-footer-text a:hover { color: #a5b4fc; }
+        .benefits-list { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.5rem; }
+        .benefit-item { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: #94a3b8; }
+        .benefit-item i { color: #10b981; font-size: 0.75rem; }
+        @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } .auth-card { padding: 2rem 1.5rem; } }
+    </style>
 </head>
-<body class="bg-gradient">
-    <div class="glass-container auth-box">
-        <h1><i class="fa-solid fa-bolt text-gradient"></i> Create Account</h1>
-        <p>Join to automate your applications</p>
-        
-        <% if(error) { %>
-            <div class="alert alert-error"><%= error %></div>
-        <% } %>
+<body>
+    <canvas class="auth-bg-canvas" id="bg-canvas"></canvas>
 
-        <form action="/register" method="POST">
-            <div class="form-group">
-                <label for="name">Full Name</label>
-                <input type="text" name="name" id="name" required placeholder="John Doe">
+    <div class="auth-body-wrap">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <div class="auth-logo-icon"><i class="fa-solid fa-bolt"></i></div>
+                <span class="auth-logo-text">Tracktern</span>
             </div>
 
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" name="email" id="email" required placeholder="example@domain.com">
-            </div>
-            
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" name="password" id="password" required placeholder="••••••••">
-            </div>
+            <h1 class="auth-title">Create Account</h1>
+            <p class="auth-subtitle">Join thousands of students getting AI-powered internship matches.</p>
 
-            <div class="form-group">
-                <label for="branch">Branch</label>
-                <input type="text" name="branch" id="branch" placeholder="Computer Science">
+            <div class="benefits-list">
+                <div class="benefit-item"><i class="fa-solid fa-check-circle"></i> AI resume scoring & skill extraction</div>
+                <div class="benefit-item"><i class="fa-solid fa-check-circle"></i> Smart opportunity matching with % scores</div>
+                <div class="benefit-item"><i class="fa-solid fa-check-circle"></i> Application pipeline tracker</div>
+                <div class="benefit-item"><i class="fa-solid fa-check-circle"></i> Authenticity verification for postings</div>
             </div>
 
-            <div class="form-group">
-                <label for="year">Year of Study</label>
-                <input type="text" name="year" id="year" placeholder="3rd Year">
-            </div>
+            <% if(error) { %>
+                <div class="auth-alert-error">
+                    <i class="fa-solid fa-circle-exclamation"></i> <%= error %>
+                </div>
+            <% } %>
 
-            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Register</button>
-        </form>
+            <form action="/register" method="POST" id="register-form">
+                <div class="auth-input-group">
+                    <label for="name"><i class="fa-solid fa-user"></i> Full Name</label>
+                    <input type="text" name="name" id="name" required placeholder="John Doe" autocomplete="name">
+                </div>
 
-        <p class="mt-3 text-center">Already have an account? <a href="/login" class="link">Login</a></p>
+                <div class="auth-input-group">
+                    <label for="email"><i class="fa-regular fa-envelope"></i> Email Address</label>
+                    <input type="email" name="email" id="email" required placeholder="you@example.com" autocomplete="email">
+                </div>
+
+                <div class="auth-input-group">
+                    <label for="password"><i class="fa-solid fa-lock"></i> Password</label>
+                    <input type="password" name="password" id="password" required placeholder="Min. 8 characters" autocomplete="new-password">
+                </div>
+
+                <div class="form-row">
+                    <div class="auth-input-group" style="margin-bottom:0">
+                        <label for="branch"><i class="fa-solid fa-graduation-cap"></i> Branch</label>
+                        <input type="text" name="branch" id="branch" placeholder="Computer Science" autocomplete="off">
+                    </div>
+                    <div class="auth-input-group" style="margin-bottom:0">
+                        <label for="year"><i class="fa-solid fa-calendar-days"></i> Year</label>
+                        <input type="text" name="year" id="year" placeholder="3rd Year" autocomplete="off">
+                    </div>
+                </div>
+
+                <button type="submit" class="auth-submit-btn" id="register-btn">
+                    <i class="fa-solid fa-user-plus"></i> Create Account
+                </button>
+            </form>
+
+            <hr class="auth-divider">
+            <p class="auth-footer-text">Already have an account? <a href="/login">Sign in</a></p>
+        </div>
     </div>
+
+    <script>
+        document.getElementById('register-form').addEventListener('submit', function() {
+            const btn = document.getElementById('register-btn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating account...';
+            btn.disabled = true;
+        });
+
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let W = canvas.width = window.innerWidth;
+        let H = canvas.height = window.innerHeight;
+        const particles = [];
+
+        class Particle {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * W; this.y = Math.random() * H;
+                this.r = Math.random() * 1.5 + 0.5;
+                this.vx = (Math.random() - 0.5) * 0.3; this.vy = -Math.random() * 0.4 - 0.1;
+                this.alpha = Math.random() * 0.4 + 0.1;
+                const colors = ['#6366f1','#8b5cf6','#06b6d4','#a5b4fc'];
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if (this.y < -5 || this.x < -5 || this.x > W+5) this.reset();
+            }
+            draw() {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+                ctx.fillStyle = this.color; ctx.globalAlpha = this.alpha; ctx.fill();
+            }
+        }
+        for (let i = 0; i < 80; i++) particles.push(new Particle());
+        function animateParticles() {
+            ctx.clearRect(0, 0, W, H); ctx.globalAlpha = 1;
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+        window.addEventListener('resize', () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; });
+    </script>
 </body>
 </html>

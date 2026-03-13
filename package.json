@@ -4,7 +4,29 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "jest --passWithNoTests"
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "jest --passWithNoTests --forceExit",
+    "test:unit": "jest --forceExit unit --passWithNoTests",
+    "test:integration": "jest --forceExit integration --passWithNoTests",
+    "test:coverage": "jest --coverage --forceExit --passWithNoTests"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ],
+    "testTimeout": 30000,
+    "testEnvironmentOptions": {
+      "NODE_ENV": "test"
+    },
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "lib/**/*.js",
+      "routes/**/*.js",
+      "models/**/*.js",
+      "!node_modules/**"
+    ]
   },
   "keywords": [],
   "author": "",
@@ -15,14 +37,15 @@
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",
     "dotenv": "^17.3.1",
-    "ejs": "^5.0.1",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "mongoose": "^9.3.0",
     "node-cron": "^4.2.1",
+    "node-telegram-bot-api": "^0.67.0",
     "openai": "^6.27.0"
   },
   "devDependencies": {
+    "ejs": "^5.0.1",
     "jest": "^30.3.0",
     "mongodb-memory-server": "^11.0.1",
     "supertest": "^7.2.2"
