@@ -6,7 +6,7 @@ const { GoogleGenAI } = require('@google/genai');
 const { normalizeDeadlineTime, extractDeadlineTime } = require('../lib/deadlineTime');
 const { buildGoogleCalendarLink } = require('../lib/googleCalendar');
 
-const LLM_API_KEY = (process.env.LLM_API_KEY || '').trim();
+const LLM_API_KEY = (process.env.LLM_API_KEY || process.env.GEMINI_API_KEY || '').trim();
 const ai = LLM_API_KEY ? new GoogleGenAI({ apiKey: LLM_API_KEY }) : null;
 
 const SHORTENER_HOSTS = new Set([

@@ -7,7 +7,7 @@ const Opportunity = require('./models/Opportunity');
 
 // Add these placeholders if variables don't exist
 const token = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
-const LLM_API_KEY = (process.env.LLM_API_KEY || '').trim();
+const LLM_API_KEY = (process.env.LLM_API_KEY || process.env.GEMINI_API_KEY || '').trim();
 
 if (!token) {
     console.error(' [Bot] TELEGRAM_BOT_TOKEN missing in .env');
@@ -20,11 +20,14 @@ if (!LLM_API_KEY) {
 let bot;
 
 if (token && LLM_API_KEY) {
-    console.log(' [Bot] Initializing GenAI and Telegram Bot...');
-    const ai = new GoogleGenAI({ apiKey: LLM_API_KEY });
-    bot = new TelegramBot(token, { polling: true });
+    if (process.env.VERCEL) {
+        console.log(' [Bot] Running on Vercel: Polling disabled. (Use webhooks for serverless)');
+    } else {
+        console.log(' [Bot] Initializing GenAI and Telegram Bot...');
+        const ai = new GoogleGenAI({ apiKey: LLM_API_KEY });
+        bot = new TelegramBot(token, { polling: true });
 
-    console.log(' [Bot] Telegram bot active and polling...');
+        console.log(' [Bot] Telegram bot active and polling...');
 
     // Matches "/add_opp [whatever]"
     bot.onText(/\/add_opp (.+)/, async (msg, match) => {
@@ -110,7 +113,7 @@ if (token && LLM_API_KEY) {
             bot.sendMessage(chatId, 'Error processing opportunity: ' + (error.message || error.toString()));
         }
     });
-
+    }
 }
 
 module.exports = bot;

@@ -29,7 +29,10 @@ const connectDB = async () => {
 
         console.log(`MongoDB Connected: ${conn.connection.host}`);
     } catch (err) {
-        console.error(`MongoDB connection failed: ${err.message}`);
+        console.error(` [DB] connection failed: ${err.message}`);
+        if (process.env.VERCEL) {
+            throw err;
+        }
         process.exit(1);
     }
 };
