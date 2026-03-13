@@ -167,16 +167,28 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-        const user = await User.findOne({ email });
-        if (!user) {
+        const userLookup = User.findOne({ email });
+        const user = userLookup && typeof userLookup.select === 'function'
+            ? await userLookup.select('+password')
+            : await userLookup;
+        if (!user || !user.password) {
             return res.render('login', { error: 'Invalid email or password' });
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.render('login', { error: 'Invalid email or password' });
         }
-        req.session.userId = user._id;
-        res.redirect('/dashboard');
+
+        // Fix: Use req.session.save to ensure session is persisted before redirect.
+        // Also explicitly use string for userId to prevent object serialization issues.
+        req.session.userId = String(user._id);
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session save error during login:', err);
+                return res.render('login', { error: 'Could not establish session. Please try again.' });
+            }
+            res.redirect('/dashboard');
+        });
     } catch (err) {
         console.error('Login error:', err);
         res.render('login', { error: 'Server error during login' });

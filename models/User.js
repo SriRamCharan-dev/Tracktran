@@ -34,6 +34,6 @@ const UserSchema = new mongoose.Schema({
     resumeAnalysis: { type: ResumeAnalysisSchema, default: () => ({}) }
 });
 
-UserSchema.index({ email: 1 }, { unique: true });
+// Unique index for email is handled by the field definition above
 
 module.exports = mongoose.model('User', UserSchema);
