@@ -36,18 +36,25 @@
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",
+    "connect-mongo": "^5.1.0",
     "dotenv": "^17.3.1",
+    "ejs": "^5.0.1",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "mongoose": "^9.3.0",
     "node-cron": "^4.2.1",
     "node-telegram-bot-api": "^0.67.0",
-    "openai": "^6.27.0",
-    "ejs": "^5.0.1"
+    "openai": "^6.27.0"
   },
   "devDependencies": {
     "jest": "^30.3.0",
     "mongodb-memory-server": "^11.0.1",
     "supertest": "^7.2.2"
+  },
+  "overrides": {
+    "request": {
+      "form-data": "2.5.5",
+      "qs": "6.14.1"
+    }
   }
 }
